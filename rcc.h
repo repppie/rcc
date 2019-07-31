@@ -1,0 +1,81 @@
+#ifndef _RCC_H
+#define _RCC_H
+
+extern struct token *tok;
+
+struct token {
+	struct token *next;
+	int tok;
+	int line;
+	union {
+		long val;
+		char *str;
+	};
+};
+
+enum tokens {
+	TOK_CONSTANT = 0x80,
+	TOK_ID,
+	TOK_STRING,
+	TOK_PTR,
+	TOK_INCR,
+	TOK_DECR,
+	TOK_SL,
+	TOK_SR,
+	TOK_LT,
+	TOK_GT,
+	TOK_LE,
+	TOK_GE,
+	TOK_EQ,
+	TOK_NE,
+	TOK_AND,
+	TOK_OR,
+	TOK_ELL,
+	TOK_ASSMUL,
+	TOK_ASSDIV,
+	TOK_ASSMOD,
+	TOK_ASSADD,
+	TOK_ASSSUB,
+	TOK_ASSSL,
+	TOK_ASSSR,
+	TOK_ASSAND,
+	TOK_ASSXOR,
+	TOK_ASSOR,
+	TOK_AUTO,
+	TOK_BREAK,
+	TOK_CASE,
+	TOK_CONST,
+	TOK_CONTINUE,
+	TOK_DEFAULT,
+	TOK_DO,
+	TOK_DOUBLE,
+	TOK_ELSE,
+	TOK_ENUM,
+	TOK_EXTERN,
+	TOK_FLOAT,
+	TOK_FOR,
+	TOK_GOTO,
+	TOK_IF,
+	TOK_INLINE,
+	TOK_INT,
+	TOK_LONG,
+	TOK_REGISTER,
+	TOK_RESTRICT,
+	TOK_RETURN,
+	TOK_SHORT,
+	TOK_SIGNED,
+	TOK_SIZEOF,
+	TOK_STATIC,
+	TOK_STRUCT,
+	TOK_SWITCH,
+	TOK_TYPEDEF,
+	TOK_UNION,
+	TOK_UNSIGNED,
+	TOK_VOID,
+	TOK_VOLATILE,
+	TOK_WHILE,
+};
+
+void lex(FILE *f);
+
+#endif
