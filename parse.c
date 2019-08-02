@@ -94,6 +94,8 @@ stmt(void)
 	n = expr();
 	gen_ir(n);
 	dump_ir();
+
+	emit_x86();
 }
 
 void

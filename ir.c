@@ -36,8 +36,8 @@ alloc_reg(void)
 	return cur_reg++;
 }
 
-int
-gen_ir(struct node *n)
+static int
+gen_ir_op(struct node *n)
 {
 	int dst, l, op, r;
 
@@ -55,10 +55,12 @@ gen_ir(struct node *n)
 		else if (n->op == N_DIV)
 			op = IR_DIV;
 
-		l = gen_ir(n->l);
-		r = gen_ir(n->r);
+		l = gen_ir_op(n->l);
+		r = gen_ir_op(n->r);
 		dst = alloc_reg();
 		new_ir(op, l, r, dst);
+		new_ir(IR_KILL, l, 0, 0);
+		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
 	case N_CONSTANT:
 		dst = alloc_reg();
@@ -68,7 +70,15 @@ gen_ir(struct node *n)
 		errx(1, "Unknown node op %d\n", n->op);
 		return (-1);
 	}
-	/* NOT REACHED */
+}
+
+void
+gen_ir(struct node *n)
+{
+	int r;
+
+	r = gen_ir_op(n);
+	new_ir(IR_RET, r, 0, 0);
 }
 
 static char *ir_names[NR_IR_OPS] = {
@@ -77,12 +87,15 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_MUL] = "MUL",
     [IR_DIV] = "DIV",
     [IR_LOADI] = "LOADI",
+    [IR_KILL] = "KILL",
+    [IR_RET] = "RET",
 };
 
-static void
-dump_ir_op(struct ir *ir)
+void
+dump_ir_op(FILE *f, struct ir *ir)
 {
-	printf("%s %ld, %ld, %ld\n", ir_names[ir->op], ir->o1, ir->o2, ir->dst);
+	fprintf(f, "%s %ld, %ld, %ld\n", ir_names[ir->op], ir->o1, ir->o2,
+	    ir->dst);
 }
 
 void
@@ -91,5 +104,5 @@ dump_ir(void)
 	struct ir *ir;
 
 	for (ir = head_ir; ir; ir = ir->next)
-		dump_ir_op(ir);
+		dump_ir_op(stdout, ir);
 }

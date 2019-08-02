@@ -92,6 +92,8 @@ enum node_op {
 	N_CONSTANT,
 };
 
+extern struct ir *head_ir;
+
 /* OP l,r -> dst */
 struct ir {
 	struct ir *next;
@@ -107,6 +109,8 @@ enum ir_op {
 	IR_MUL,
 	IR_DIV,
 	IR_LOADI,
+	IR_KILL,
+	IR_RET,
 	NR_IR_OPS,
 };
 
@@ -114,7 +118,11 @@ void lex(FILE *f);
 
 void parse(void);
 
-int gen_ir(struct node *n);
+void gen_ir(struct node *n);
+void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(void);
+
+
+void emit_x86(void);
 
 #endif
