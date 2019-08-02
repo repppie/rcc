@@ -238,4 +238,5 @@ lex(FILE *f)
 {
 	yyin = f;
 	yylex();
+	new_token(TOK_EOF);
 }

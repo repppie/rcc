@@ -74,8 +74,47 @@ enum tokens {
 	TOK_VOID,
 	TOK_VOLATILE,
 	TOK_WHILE,
+	TOK_EOF,
+};
+
+struct node {
+	struct node *l;
+	struct node *r;
+	long val;
+	int op;
+};
+
+enum node_op {
+	N_ADD,
+	N_SUB,
+	N_MUL,
+	N_DIV,
+	N_CONSTANT,
+};
+
+/* OP l,r -> dst */
+struct ir {
+	struct ir *next;
+	int op;
+	long o1;
+	long o2;
+	long dst;
+};
+
+enum ir_op {
+	IR_ADD,
+	IR_SUB,
+	IR_MUL,
+	IR_DIV,
+	IR_LOADI,
+	NR_IR_OPS,
 };
 
 void lex(FILE *f);
+
+void parse(void);
+
+int gen_ir(struct node *n);
+void dump_ir(void);
 
 #endif

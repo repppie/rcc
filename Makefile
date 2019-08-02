@@ -1,6 +1,6 @@
 PROG = rcc
 
-SRCS = rcc.c lex.yy.c
+SRCS = rcc.c lex.yy.c parse.c ir.c
 HEADERS = rcc.h
 OBJS = $(SRCS:.c=.o)
 

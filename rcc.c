@@ -17,17 +17,7 @@ main(int argc, char **argv)
 
 	lex(f);
 
-	while (tok) {
-		if (tok->tok < 0x80)
-			printf("%d: %c v %ld\n", tok->line, tok->tok, tok->val);
-		else if (tok->tok == TOK_ID)
-			printf("%d: %s\n", tok->line, tok->str);
-		else if (tok->tok == TOK_STRING)
-			printf("%d: str %s\n", tok->line, tok->str);
-		else
-			printf("%d: %d v %ld\n", tok->line, tok->tok, tok->val);
-		tok = tok->next;
-	}
+	parse();
 
 	return (0);
 }
