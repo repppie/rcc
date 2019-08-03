@@ -5,6 +5,8 @@
 
 #include "rcc.h"
 
+static struct node *expr(void);
+
 static struct node *
 new_node(enum node_op op, struct node *l, struct node *r, int v)
 {
@@ -46,17 +48,35 @@ constant(void)
 }
 
 static struct node *
+factor(void)
+{
+	struct node *n;
+
+	switch (tok->tok) {
+	case TOK_CONSTANT:
+		return constant();
+	case '(':
+		next();
+		n = expr();
+		match(')');
+		return n;
+	default:
+		errx(1, "Syntax error at line %d", tok->line);
+	}
+}
+
+static struct node *
 term(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = constant();
+	l = factor();
 
 	while (tok->tok == '*' || tok->tok == '/') {
 		t = tok->tok;
 		next();
-		r = constant();
+		r = factor();
 		l = new_node(t == '*' ? N_MUL : N_DIV, l, r, 0);
 	}
 
