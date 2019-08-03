@@ -1,6 +1,6 @@
 PROG = rcc
 
-SRCS = rcc.c lex.yy.c parse.c ir.c x86.c
+SRCS = rcc.c lex.yy.c parse.c ir.c x86.c sym.c
 HEADERS = rcc.h
 OBJS = $(SRCS:.c=.o)
 

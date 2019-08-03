@@ -100,7 +100,7 @@ emit_x86_op(struct ir *ir)
 	case IR_ADD:
 	case IR_SUB:
 	case IR_MUL:
-		emit("pushq %%%s", x86_reg(ir->o2));
+		emit("pushq %%%s", x86_reg(ir->o1));
 		if (ir->op == IR_ADD)
 			emit("addq %%%s, %%%s", x86_reg(ir->o2),
 			    x86_reg(ir->o1));
@@ -111,7 +111,7 @@ emit_x86_op(struct ir *ir)
 			emit("imulq %%%s, %%%s", x86_reg(ir->o2),
 			    x86_reg(ir->o1));
 		emit("movq %%%s, %%%s", x86_reg(ir->o1), x86_reg(ir->dst));
-		emit("popq %%%s", x86_reg(ir->o2));
+		emit("popq %%%s", x86_reg(ir->o1));
 		break;
 	case IR_DIV:
 		emit("pushq %%rax");
@@ -129,6 +129,9 @@ emit_x86_op(struct ir *ir)
 		emit("movq %%rax, %%%s", x86_reg(ir->dst));
 		if (ir_regs[ir->dst] != RAX)
 			emit("popq %%rax");
+		break;
+	case IR_MOV:
+		emit("mov %%%s, %%%s", x86_reg(ir->o1), x86_reg(ir->dst));
 		break;
 	case IR_RET:
 		emit("leaq fmt, %%rdi");

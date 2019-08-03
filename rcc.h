@@ -44,6 +44,7 @@ enum tokens {
 	TOK_AUTO,
 	TOK_BREAK,
 	TOK_CASE,
+	TOK_CHAR,
 	TOK_CONST,
 	TOK_CONTINUE,
 	TOK_DEFAULT,
@@ -80,8 +81,14 @@ enum tokens {
 struct node {
 	struct node *l;
 	struct node *r;
-	long val;
+	struct node *next;
+	union {
+		long val;
+		char *str;
+		struct symbol *sym;
+	};
 	int op;
+	int killable;
 };
 
 enum node_op {
@@ -90,6 +97,9 @@ enum node_op {
 	N_MUL,
 	N_DIV,
 	N_CONSTANT,
+	N_SYM,
+	N_ASSIGN,
+	N_MULTIPLE,
 };
 
 extern struct ir *head_ir;
@@ -111,18 +121,29 @@ enum ir_op {
 	IR_LOADI,
 	IR_KILL,
 	IR_RET,
+	IR_MOV,
 	NR_IR_OPS,
+};
+
+struct symbol {
+	struct symbol *next;
+	char *name;
+	int val;
+	int assigned;
 };
 
 void lex(FILE *f);
 
 void parse(void);
 
-void gen_ir(struct node *n);
 void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(void);
-
+void gen_ir(struct node *n);
+void gen_ir_ret(struct node *n);
 
 void emit_x86(void);
+
+struct symbol *add_sym(char *name);
+struct symbol *find_sym(char *name);
 
 #endif

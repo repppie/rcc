@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
+#include <assert.h>
 
 #include "rcc.h"
 
@@ -39,6 +40,7 @@ alloc_reg(void)
 static int
 gen_ir_op(struct node *n)
 {
+	struct symbol *sym;
 	int dst, l, op, r;
 
 	switch (n->op) {
@@ -46,6 +48,7 @@ gen_ir_op(struct node *n)
 	case N_SUB:
 	case N_MUL:
 	case N_DIV:
+		n->killable = 1;
 		if (n->op == N_ADD)
 			op = IR_ADD;
 		else if (n->op == N_SUB)
@@ -59,13 +62,32 @@ gen_ir_op(struct node *n)
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
 		new_ir(op, l, r, dst);
-		new_ir(IR_KILL, l, 0, 0);
-		new_ir(IR_KILL, r, 0, 0);
+		if (n->l->killable)
+			new_ir(IR_KILL, l, 0, 0);
+		if (n->r->killable)
+			new_ir(IR_KILL, r, 0, 0);
 		return (dst);
 	case N_CONSTANT:
+		n->killable = 1;
 		dst = alloc_reg();
 		new_ir(IR_LOADI, n->val, 0, dst);
 		return (dst);
+	case N_SYM:
+		assert(n->sym->assigned);
+		return (n->sym->val);
+	case N_ASSIGN:
+		sym = n->l->sym;
+		if (!sym->assigned) {
+			sym->assigned = 1;
+			sym->val = dst = alloc_reg();
+		}
+		r = gen_ir_op(n->r);
+		new_ir(IR_MOV, r, 0, dst);
+		return (sym->val);
+	case N_MULTIPLE:
+		for (n = n->l; n; n = n->next)
+			gen_ir_op(n);
+		return (-1);
 	default:
 		errx(1, "Unknown node op %d\n", n->op);
 		return (-1);
@@ -74,6 +96,14 @@ gen_ir_op(struct node *n)
 
 void
 gen_ir(struct node *n)
+{
+	int r;
+
+	r = gen_ir_op(n);
+}
+
+void
+gen_ir_ret(struct node *n)
 {
 	int r;
 
@@ -89,6 +119,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_LOADI] = "LOADI",
     [IR_KILL] = "KILL",
     [IR_RET] = "RET",
+    [IR_MOV] = "MOV",
 };
 
 void
