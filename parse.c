@@ -191,6 +191,16 @@ assign(void)
 	return (n);
 }
 
+static struct node *
+ret(void)
+{
+	struct node *n;
+
+	match(TOK_RETURN);
+	n = expr();
+	return (new_node(N_RETURN, n, NULL, 0));
+}
+
 static void
 stmt(void)
 {
@@ -203,16 +213,16 @@ stmt(void)
 
 	if (is_type(tok)) {
 		n = decl();
-		gen_ir(n);
 	} else {
 		if (tok->next->tok == '=') {
 			n = assign();
-			gen_ir(n);
+		} else if (tok->tok == TOK_RETURN) {
+			n = ret();
 		} else {
 			n = expr();
-			gen_ir_ret(n);
 		}
 	}
+	gen_ir(n);
 }
 
 void

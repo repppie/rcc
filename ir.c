@@ -88,6 +88,10 @@ gen_ir_op(struct node *n)
 		for (n = n->l; n; n = n->next)
 			gen_ir_op(n);
 		return (-1);
+	case N_RETURN:
+		l = gen_ir_op(n->l);
+		new_ir(IR_RET, l, 0, 0);
+		return (-1);
 	default:
 		errx(1, "Unknown node op %d\n", n->op);
 		return (-1);
@@ -100,15 +104,6 @@ gen_ir(struct node *n)
 	int r;
 
 	r = gen_ir_op(n);
-}
-
-void
-gen_ir_ret(struct node *n)
-{
-	int r;
-
-	r = gen_ir_op(n);
-	new_ir(IR_RET, r, 0, 0);
 }
 
 static char *ir_names[NR_IR_OPS] = {

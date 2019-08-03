@@ -100,6 +100,7 @@ enum node_op {
 	N_SYM,
 	N_ASSIGN,
 	N_MULTIPLE,
+	N_RETURN,
 };
 
 extern struct ir *head_ir;
@@ -139,7 +140,6 @@ void parse(void);
 void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(void);
 void gen_ir(struct node *n);
-void gen_ir_ret(struct node *n);
 
 void emit_x86(void);
 
