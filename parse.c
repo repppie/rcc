@@ -170,6 +170,27 @@ decl(void)
 	return (n);
 }
 
+static struct node *
+assign(void)
+{
+	struct symbol *s;
+	struct node *l, *r, *n;
+
+	if (tok->tok != TOK_ID)
+		errx(1, "Syntax error at line %d: Expected identifier,"
+		    " got %d\n", tok->line, tok->tok);
+	if ((s = find_sym(tok->str)) == NULL)
+		errx(1, "'%s' undeclared at line %d\n", tok->str,
+		    tok->line);
+	next();
+	match('=');
+	l = new_node(N_SYM, NULL, NULL, s);
+	r = expr();
+	n = new_node(N_ASSIGN, l, r, 0);
+
+	return (n);
+}
+
 static void
 stmt(void)
 {
@@ -184,8 +205,13 @@ stmt(void)
 		n = decl();
 		gen_ir(n);
 	} else {
-		n = expr();
-		gen_ir_ret(n);
+		if (tok->next->tok == '=') {
+			n = assign();
+			gen_ir(n);
+		} else {
+			n = expr();
+			gen_ir_ret(n);
+		}
 	}
 }
 

@@ -79,10 +79,10 @@ gen_ir_op(struct node *n)
 		sym = n->l->sym;
 		if (!sym->assigned) {
 			sym->assigned = 1;
-			sym->val = dst = alloc_reg();
+			sym->val = alloc_reg();
 		}
 		r = gen_ir_op(n->r);
-		new_ir(IR_MOV, r, 0, dst);
+		new_ir(IR_MOV, r, 0, sym->val);
 		return (sym->val);
 	case N_MULTIPLE:
 		for (n = n->l; n; n = n->next)
