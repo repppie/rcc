@@ -36,7 +36,7 @@ static int x86_regs[NR_X86_REGS];
 static char *x86_regs_names[NR_X86_REGS] = { "XXX", "rax", "rbx", "rcx",
     "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
 static char *x86_32_regs_names[NR_X86_REGS] = { "XXX", "eax", "ebx", "ecx",
-    "rdx", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
+    "edx", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
 static char *x86_16_regs_names[NR_X86_REGS] = { "XXX", "ax", "bx", "cx", "dx",
     "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w" };
 static char *x86_8_regs_names[NR_X86_REGS] = { "XXX", "al", "bl", "cl", "dl",
@@ -154,6 +154,15 @@ emit_x86_op(struct ir *ir)
 		else
 			emit("setne %%%s", x86_reg(ir->dst, 1));
 		break;
+	case IR_CBR:
+		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,
+		    8));
+		emit("jne ___l%d", ir->o2);
+		emit("je ___l%d", ir->dst);
+		break;
+	case IR_LABEL:
+		emit("___l%d:", ir->o1);
+		break;
 	case IR_MOV:
 		emit("mov %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
 		break;
@@ -162,10 +171,11 @@ emit_x86_op(struct ir *ir)
 		emit("movq %%%s, %%rsi", x86_reg(ir->o1, 8));
 		emit("xorl %%eax,%%eax");
 		emit("callq printf");
+		emit("retq");
 		kill_all();
 		break;
 	default:
-		errx(1, "Unknown IR instruction %d\n", ir->op);
+		errx(1, "Unknown IR instruction %d", ir->op);
 	}
 }
 

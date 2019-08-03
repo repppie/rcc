@@ -9,6 +9,16 @@
 struct ir *head_ir;
 static struct ir *last_ir;
 
+static int labels;
+
+static int gen_ir_op(struct node *n);
+
+static int
+new_label(void)
+{
+	return labels++;
+}
+
 static struct ir *
 new_ir(int op, int o1, int o2, int dst)
 {
@@ -31,10 +41,36 @@ new_ir(int op, int o1, int o2, int dst)
 
 static int cur_reg;
 
-int
+static int
 alloc_reg(void)
 {
 	return cur_reg++;
+}
+
+static void
+maybe_kill(struct node *n, int r)
+{
+	if (n->killable)
+		new_ir(IR_KILL, r, 0, 0);
+}
+
+static int
+gen_if(struct node *n)
+{
+	int cond, else_lbl, if_lbl;
+
+	cond = gen_ir_op(n->cond);
+	if_lbl = new_label();
+	else_lbl = new_label();
+	new_ir(IR_CBR, cond, if_lbl, else_lbl);
+	maybe_kill(n->cond, cond);
+	new_ir(IR_LABEL, if_lbl, 0, 0);
+	gen_ir_op(n->l);
+	new_ir(IR_LABEL, else_lbl, 0, 0);
+	if (n->r)
+		gen_ir_op(n->r);
+
+	return (-1);
 }
 
 static int
@@ -62,10 +98,8 @@ gen_ir_op(struct node *n)
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
 		new_ir(op, l, r, dst);
-		if (n->l->killable)
-			new_ir(IR_KILL, l, 0, 0);
-		if (n->r->killable)
-			new_ir(IR_KILL, r, 0, 0);
+		maybe_kill(n->l, l);
+		maybe_kill(n->r, r);
 		return (dst);
 	case N_CONSTANT:
 		n->killable = 1;
@@ -99,11 +133,11 @@ gen_ir_op(struct node *n)
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		new_ir(n->op == N_EQ ? IR_EQ : IR_NE, l, r, dst);
-		if (n->l->killable)
-			new_ir(IR_KILL, l, 0, 0);
-		if (n->r->killable)
-			new_ir(IR_KILL, r, 0, 0);
+		maybe_kill(n->l, l);
+		maybe_kill(n->r, r);
 		return (dst);
+	case N_IF:
+		return (gen_if(n));
 	default:
 		errx(1, "Unknown node op %d", n->op);
 		return (-1);
@@ -130,6 +164,8 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_RET] = "RET",
     [IR_EQ] = "EQ",
     [IR_NE] = "NE",
+    [IR_CBR] = "CBR",
+    [IR_LABEL] = "LABEL",
 };
 
 void

@@ -81,7 +81,10 @@ enum tokens {
 struct node {
 	struct node *l;
 	struct node *r;
-	struct node *next;
+	union {
+		struct node *next;
+		struct node *cond;
+	};
 	union {
 		long val;
 		char *str;
@@ -103,6 +106,7 @@ enum node_op {
 	N_RETURN,
 	N_EQ,
 	N_NE,
+	N_IF,
 };
 
 extern struct ir *head_ir;
@@ -127,6 +131,8 @@ enum ir_op {
 	IR_MOV,
 	IR_EQ,
 	IR_NE,
+	IR_CBR,
+	IR_LABEL,
 	NR_IR_OPS,
 };
 

@@ -6,6 +6,7 @@
 #include "rcc.h"
 
 static struct node *expr(void);
+static struct node *stmt(void);
 
 static struct node *
 new_node(enum node_op op, struct node *l, struct node *r, void *v)
@@ -207,6 +208,7 @@ assign(void)
 	l = new_node(N_SYM, NULL, NULL, s);
 	r = expr();
 	n = new_node(N_ASSIGN, l, r, 0);
+	match(';');
 
 	return (n);
 }
@@ -218,39 +220,67 @@ ret(void)
 
 	match(TOK_RETURN);
 	n = expr();
+	match(';');
 	return (new_node(N_RETURN, n, NULL, 0));
 }
 
-static void
+static struct node *
+_if(void)
+{
+	struct node *cond, *l, *r, *n;
+
+	r = NULL;
+	match(TOK_IF);
+	match('(');
+	cond = expr();
+	match(')');
+	l = stmt();
+	if (tok->tok == TOK_ELSE) {
+		match(TOK_ELSE);
+		r = stmt();
+	}
+	n = new_node(N_IF, l, r, 0);
+	n->cond = cond;
+	return (n);
+}
+
+static struct node *
 stmt(void)
 {
 	struct node *n;
 
 	if (tok->tok == ';') {
 		next();
-		return;
+		return NULL;
 	}
 
 	if (is_type(tok)) {
 		n = decl();
 	} else {
-		if (tok->next->tok == '=') {
+		if (tok->next->tok == '=')
 			n = assign();
-		} else if (tok->tok == TOK_RETURN) {
+		else if (tok->tok == TOK_RETURN)
 			n = ret();
-		} else {
+		else if (tok->tok == TOK_IF)
+			n = _if();
+		else {
 			n = expr();
+			match(';');
 		}
 	}
-	gen_ir(n);
+	return (n);
 }
 
 void
 parse(void)
 {
+	struct node *n;
 
-	while (tok->tok != TOK_EOF)
-		stmt();
+	while (tok->tok != TOK_EOF) {
+		n = stmt();
+		if (n)
+			gen_ir(n);
+	}
 
 	emit_x86();
 }
