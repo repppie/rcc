@@ -93,9 +93,6 @@ stmt(void)
 
 	n = expr();
 	gen_ir(n);
-	dump_ir();
-
-	emit_x86();
 }
 
 void
@@ -104,4 +101,7 @@ parse(void)
 
 	while (tok->tok != TOK_EOF)
 		stmt();
+
+	dump_ir();
+	emit_x86();
 }

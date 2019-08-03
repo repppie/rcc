@@ -75,6 +75,16 @@ kill_reg(int ireg)
 }
 
 static void
+kill_all(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_IR_REGS; i++)
+		if (ir_regs[i])
+			kill_reg(i);
+}
+
+static void
 emit_x86_op(struct ir *ir)
 {
 	emit_no_nl("# ");
@@ -125,6 +135,7 @@ emit_x86_op(struct ir *ir)
 		emit("movq %%%s, %%rsi", x86_reg(ir->o1));
 		emit("xorl %%eax,%%eax");
 		emit("callq printf");
+		kill_all();
 		break;
 	default:
 		errx(1, "Unknown IR instruction %d\n", ir->op);
