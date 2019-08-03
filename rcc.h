@@ -101,6 +101,8 @@ enum node_op {
 	N_ASSIGN,
 	N_MULTIPLE,
 	N_RETURN,
+	N_EQ,
+	N_NE,
 };
 
 extern struct ir *head_ir;
@@ -123,6 +125,8 @@ enum ir_op {
 	IR_KILL,
 	IR_RET,
 	IR_MOV,
+	IR_EQ,
+	IR_NE,
 	NR_IR_OPS,
 };
 

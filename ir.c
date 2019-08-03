@@ -92,8 +92,20 @@ gen_ir_op(struct node *n)
 		l = gen_ir_op(n->l);
 		new_ir(IR_RET, l, 0, 0);
 		return (-1);
+	case N_NE:
+	case N_EQ:
+		n->killable = 1;
+		dst = alloc_reg();
+		l = gen_ir_op(n->l);
+		r = gen_ir_op(n->r);
+		new_ir(n->op == N_EQ ? IR_EQ : IR_NE, l, r, dst);
+		if (n->l->killable)
+			new_ir(IR_KILL, l, 0, 0);
+		if (n->r->killable)
+			new_ir(IR_KILL, r, 0, 0);
+		return (dst);
 	default:
-		errx(1, "Unknown node op %d\n", n->op);
+		errx(1, "Unknown node op %d", n->op);
 		return (-1);
 	}
 }
@@ -115,6 +127,9 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_KILL] = "KILL",
     [IR_RET] = "RET",
     [IR_MOV] = "MOV",
+    [IR_RET] = "RET",
+    [IR_EQ] = "EQ",
+    [IR_NE] = "NE",
 };
 
 void

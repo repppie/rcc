@@ -73,7 +73,7 @@ symbol(void)
 }
 
 static struct node *
-factor(void)
+primary_expr(void)
 {
 	struct node *n;
 
@@ -86,24 +86,24 @@ factor(void)
 		next();
 		n = expr();
 		match(')');
-		return n;
+		return (n);
 	default:
 		errx(1, "Syntax error at line %d", tok->line);
 	}
 }
 
 static struct node *
-term(void)
+multiplicative_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = factor();
+	l = primary_expr();
 
 	while (tok->tok == '*' || tok->tok == '/') {
 		t = tok->tok;
 		next();
-		r = factor();
+		r = primary_expr();
 		l = new_node(t == '*' ? N_MUL : N_DIV, l, r, 0);
 	}
 
@@ -111,21 +111,41 @@ term(void)
 }
 
 static struct node *
-expr(void)
+additive_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = term();
-
+	l = multiplicative_expr();
 	while (tok->tok == '+' || tok->tok == '-') {
 		t = tok->tok;
 		next();
-		r = term();
+		r = multiplicative_expr();
 		l = new_node(t == '+' ? N_ADD : N_SUB, l, r, 0);
 	}
-
 	return (l);
+}
+
+static struct node *
+equality_expr(void)
+{
+	struct node *l, *r;
+	enum tokens t;
+
+	l = additive_expr();
+	while (tok->tok == TOK_EQ || tok->tok == TOK_NE) {
+		t = tok->tok;
+		next();
+		r = additive_expr();
+		l = new_node(t == TOK_EQ ? N_EQ : N_NE, l, r, 0);
+	}
+	return (l);
+}
+
+static struct node *
+expr(void)
+{
+	return (equality_expr());
 }
 
 static struct node *
