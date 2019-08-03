@@ -7,6 +7,7 @@
 
 static struct node *expr(void);
 static struct node *stmt(void);
+static struct node *stmts(void);
 
 static struct node *
 new_node(enum node_op op, struct node *l, struct node *r, void *v)
@@ -37,6 +38,17 @@ match(enum tokens t)
 		    tok->line, t, tok->tok);
 	next();
 }
+
+static int
+maybe_match(enum tokens t)
+{
+	if (tok->tok == t) {
+		next();
+		return (1);
+	}
+	return (0);
+}
+		
 
 static int
 is_type(struct token *tok) {
@@ -185,6 +197,9 @@ decl(void)
 		next();
 	}
 
+	match(';');
+
+	n = head;
 	if (head->next)
 		n = new_node(N_MULTIPLE, head, NULL, 0);
 
@@ -234,10 +249,10 @@ _if(void)
 	match('(');
 	cond = expr();
 	match(')');
-	l = stmt();
+	l = stmts();
 	if (tok->tok == TOK_ELSE) {
 		match(TOK_ELSE);
-		r = stmt();
+		r = stmts();
 	}
 	n = new_node(N_IF, l, r, 0);
 	n->cond = cond;
@@ -271,16 +286,38 @@ stmt(void)
 	return (n);
 }
 
+static struct node *
+stmts(void)
+{
+	struct node *head, *last, *n;
+
+	last = head = NULL;
+	if (maybe_match('{')) {
+		while (1) {
+			n = stmt();
+			if (!head)
+				head = n;
+			if (last)
+				last->next = n;
+			last = n;
+			if (maybe_match('}'))
+				break;
+		}
+		if (head->next)
+			n = new_node(N_MULTIPLE, head, NULL, 0);
+		return (n);
+	} else
+		return (stmt());
+}
+
 void
 parse(void)
 {
 	struct node *n;
 
-	while (tok->tok != TOK_EOF) {
-		n = stmt();
-		if (n)
-			gen_ir(n);
-	}
+	n = stmts();
+	if (n)
+		gen_ir(n);
 
 	emit_x86();
 }

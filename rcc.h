@@ -81,10 +81,8 @@ enum tokens {
 struct node {
 	struct node *l;
 	struct node *r;
-	union {
-		struct node *next;
-		struct node *cond;
-	};
+	struct node *next;
+	struct node *cond;
 	union {
 		long val;
 		char *str;

@@ -81,7 +81,7 @@ char \'\\?[^\n']+\'
 "]" { new_token(']'); }
 "(" { new_token('('); }
 ")" { new_token(')'); }
-"{" { new_token(')'); }
+"{" { new_token('{'); }
 "}" { new_token('}'); }
 "." { new_token('.'); }
 "->" { new_token(TOK_PTR); }

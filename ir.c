@@ -117,6 +117,7 @@ gen_ir_op(struct node *n)
 		}
 		r = gen_ir_op(n->r);
 		new_ir(IR_MOV, r, 0, sym->val);
+		maybe_kill(n->r, r);
 		return (sym->val);
 	case N_MULTIPLE:
 		for (n = n->l; n; n = n->next)

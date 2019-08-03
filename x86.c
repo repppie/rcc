@@ -172,7 +172,6 @@ emit_x86_op(struct ir *ir)
 		emit("xorl %%eax,%%eax");
 		emit("callq printf");
 		emit("retq");
-		kill_all();
 		break;
 	default:
 		errx(1, "Unknown IR instruction %d", ir->op);
