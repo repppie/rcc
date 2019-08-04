@@ -20,7 +20,7 @@ new_label(void)
 }
 
 static struct ir *
-new_ir(int op, int o1, int o2, int dst)
+new_ir(int op, long o1, long o2, long dst)
 {
 	struct ir *ir;
 
@@ -119,6 +119,10 @@ gen_ir_op(struct node *n)
 		for (n = n->l; n; n = n->next)
 			gen_ir_op(n);
 		return (-1);
+	case N_CALL:
+		dst = alloc_reg();
+		new_ir(IR_CALL, (long)n->sym, 0, dst);
+		return (dst);
 	case N_RETURN:
 		l = gen_ir_op(n->l);
 		new_ir(IR_RET, l, 0, 0);
@@ -141,10 +145,19 @@ gen_ir_op(struct node *n)
 }
 
 void
-gen_ir(struct node *n)
+gen_ir(void)
 {
-	new_ir(IR_ENTER, ar_offset, 0, 0);
-	gen_ir_op(n);
+	int i;
+
+	for (i = 0; i < SYMTAB_SIZE; i++) {
+		if (symtab->tab[i] && symtab->tab[i]->body) {
+			head_ir = NULL;
+			last_ir = NULL;
+			new_ir(IR_ENTER, ar_offset, 0, 0);
+			gen_ir_op(symtab->tab[i]->body);
+			symtab->tab[i]->ir = head_ir;
+		}
+	}
 }
 
 static char *ir_names[NR_IR_OPS] = {
@@ -164,6 +177,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_NE] = "NE",
     [IR_CBR] = "CBR",
     [IR_LABEL] = "LABEL",
+    [IR_CALL] = "CALL",
 };
 
 void

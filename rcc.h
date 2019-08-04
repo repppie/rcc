@@ -98,6 +98,7 @@ enum node_op {
 	N_DIV,
 	N_CONSTANT,
 	N_SYM,
+	N_CALL,
 	N_ASSIGN,
 	N_MULTIPLE,
 	N_RETURN,
@@ -133,16 +134,29 @@ enum ir_op {
 	IR_NE,
 	IR_CBR,
 	IR_LABEL,
+	IR_CALL,
 	NR_IR_OPS,
 };
 
-int ar_offset;
+#define	SYMTAB_SIZE 1021
+
+extern struct symtab *symtab;
+extern int ar_offset;
 
 struct symbol {
 	struct symbol *next;
 	char *name;
 	int val;
 	int assigned;
+	int func;
+	struct node *body;
+	struct ir *ir;
+};
+
+struct symtab {
+	struct symbol *tab[SYMTAB_SIZE];
+	struct symtab *prev;
+	int level;
 };
 
 void lex(FILE *f);
@@ -151,11 +165,14 @@ void parse(void);
 
 void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(void);
-void gen_ir(struct node *n);
+void gen_ir(void);
 
 void emit_x86(void);
 
 struct symbol *add_sym(char *name);
 struct symbol *find_sym(char *name);
+struct symbol *find_global_sym(char *name);
+void new_symtab(void);
+void del_symtab(void);
 
 #endif

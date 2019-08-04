@@ -57,10 +57,24 @@ is_type(struct token *tok) {
 	case TOK_SHORT:
 	case TOK_INT:
 	case TOK_LONG:
+	case TOK_VOID:
 		return (1);
 	default:
 		return (0);
 	}
+}
+
+static int
+type(void) {
+	int t;
+
+	t = tok->tok;
+	if (is_type(tok))
+		next();
+	else
+		errx(1, "Syntax error at line %d: Expected type got %d\n",
+		    tok->line, tok->tok);
+	return (t);
 }
 
 static struct node *
@@ -82,7 +96,12 @@ symbol(void)
 		errx(1, "'%s' undeclared at line %d", tok->str,
 		    tok->line);
 	match(TOK_ID);
-	return (new_node(N_SYM, NULL, NULL, s));
+	if (s->func) {
+		match('(');
+		match(')');
+		return (new_node(N_CALL, NULL, NULL, s));
+	} else
+		return (new_node(N_SYM, NULL, NULL, s));
 }
 
 static struct node *
@@ -287,37 +306,67 @@ stmt(void)
 }
 
 static struct node *
-stmts(void)
+compound_stmt(void)
 {
 	struct node *head, *last, *n;
 
 	last = head = NULL;
-	if (maybe_match('{')) {
-		while (1) {
-			n = stmt();
-			if (!head)
-				head = n;
-			if (last)
-				last->next = n;
-			last = n;
-			if (maybe_match('}'))
-				break;
-		}
-		if (head->next)
-			n = new_node(N_MULTIPLE, head, NULL, 0);
-		return (n);
-	} else
+	while (1) {
+		n = stmt();
+		if (!head)
+			head = n;
+		if (last)
+			last->next = n;
+		last = n;
+		if (maybe_match('}'))
+			break;
+	}
+	if (head->next)
+		n = new_node(N_MULTIPLE, head, NULL, 0);
+	return (n);
+}
+
+static struct node *
+stmts()
+{
+	if (maybe_match('{'))
+		return (compound_stmt());
+	else
 		return (stmt());
+}
+
+void
+func(void) {
+	struct symbol *s;
+	struct node *n;
+	int _type;
+
+	_type = type();
+
+	if (tok->tok != TOK_ID)
+		errx(1, "Syntax error at line %d, Expected symbol, got %d",
+		    tok->line, tok->tok);
+	if ((find_sym(tok->str)) != NULL)
+		errx(1, "'%s' redeclared at line %d", tok->str,
+		    tok->line);
+	s = add_sym(tok->str);
+	s->func = 1;
+	next();
+
+	new_symtab();
+	match('(');
+	match(')');
+
+	match('{');
+	n = compound_stmt();
+	del_symtab();
+
+	s->body = n;
 }
 
 void
 parse(void)
 {
-	struct node *n;
-
-	n = stmts();
-	if (n)
-		gen_ir(n);
-
-	emit_x86();
+	while (tok->tok != TOK_EOF)
+		func();
 }

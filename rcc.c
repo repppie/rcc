@@ -18,6 +18,8 @@ main(int argc, char **argv)
 	lex(f);
 
 	parse();
+	gen_ir();
+	emit_x86();
 
 	return (0);
 }

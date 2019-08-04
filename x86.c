@@ -100,6 +100,8 @@ kill_all(void)
 static void
 emit_x86_op(struct ir *ir)
 {
+	int i;
+
 	emit_no_nl("# ");
 	dump_ir_op(out, ir);
 
@@ -174,16 +176,24 @@ emit_x86_op(struct ir *ir)
 	case IR_MOV:
 		emit("mov %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
 		break;
+	case IR_CALL:
+		for (i = 1; i < MAX_IR_REGS; i++)
+			if (ir_regs[i] && i != ir->dst)
+				emit("pushq %%%s", x86_regs_names[ir_regs[i]]);
+		emit("callq %s", ((struct symbol *)ir->o1)->name);
+		emit("movq %%rax, %%%s", x86_reg(ir->dst, 8));
+		for (i = MAX_IR_REGS; i >= 1; i--)
+			if (ir_regs[i] && i != ir->dst)
+				emit("popq %%%s", x86_regs_names[ir_regs[i]]);
+		break;
 	case IR_ENTER:
+		kill_all();
 		emit("pushq %%rbp");
 		emit("movq %%rsp, %%rbp");
 		emit("subq $%d, %%rsp", ir->o1);
 		break;
 	case IR_RET:
-		emit("leaq fmt, %%rdi");
-		emit("movq %%%s, %%rsi", x86_reg(ir->o1, 8));
-		emit("xorl %%eax,%%eax");
-		emit("callq printf");
+		emit("movq %%%s, %%rax", x86_reg(ir->o1, 8));
 		emit("leaveq");
 		emit("retq");
 		break;
@@ -196,20 +206,21 @@ void
 emit_x86(void)
 {
 	struct ir *ir;
+	int i;
 
 	if ((out = fopen("out.S", "w")) < 0)
 		err(1, "fopen");
 
 	emit("fmt: .asciz \"%%ld\\n\"");
-	emit(".globl main");
-	emit("main:");
 
-	for(ir = head_ir; ir; ir = ir->next)
-		emit_x86_op(ir);
-
-	emit("xorl %%eax,%%eax");
-	emit("leave");
-	emit("retq");
+	for (i = 0; i < SYMTAB_SIZE; i++) {
+		if (symtab->tab[i] && symtab->tab[i]->body) {
+			emit(".globl %s", symtab->tab[i]->name);
+			emit("%s:", symtab->tab[i]->name);
+			for(ir = symtab->tab[i]->ir; ir; ir = ir->next)
+				emit_x86_op(ir);
+		}
+	}
 
 	if (fclose(out))
 		err(1, "fclose");

@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "rcc.h"
 
-#define	SYMTAB_SIZE 1021
-static struct symbol *symtab[SYMTAB_SIZE];
+static struct symtab l0_symtab;
+struct symtab *symtab = &l0_symtab;
 int ar_offset;
 
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
@@ -19,20 +20,35 @@ hash_str(char *s)
 	while (*s)
 		hash = HASHSTEP(hash, *s++);
 
-	return (hash);
+	return (hash % SYMTAB_SIZE);
 }
 
-struct symbol *
-find_sym(char *name)
+static struct symbol *
+_find_sym(char *name, struct symtab *tab)
 {
 	struct symbol *s;
 	int hash;
 
 	hash = hash_str(name);
-	for (s = symtab[hash]; s; s = s->next)
-		if (!strcmp(s->name, name))
-			return (s);
+	while (tab) {
+		for (s = tab->tab[hash]; s; s = s->next)
+			if (!strcmp(s->name, name))
+				return (s);
+		tab = tab->prev;
+	}
 	return (NULL);
+}
+
+struct symbol *
+find_sym(char *name)
+{
+	return (_find_sym(name, symtab));
+}
+
+struct symbol *
+find_global_sym(char *name)
+{
+	return (_find_sym(name, &l0_symtab));
 }
 
 struct symbol *
@@ -42,7 +58,7 @@ add_sym(char *name)
 	int hash;
 
 	hash = hash_str(name);
-	for (s = symtab[hash]; s; s = s->next)
+	for (s = symtab->tab[hash]; s; s = s->next)
 		if (!strcmp(s->name, name))
 			return (s);
 
@@ -52,8 +68,28 @@ add_sym(char *name)
 	s->val = ar_offset;
 	ar_offset += 8;
 
-	s->next = symtab[hash];
-	symtab[hash] = s;
+	s->next = symtab->tab[hash];
+	symtab->tab[hash] = s;
 
 	return (s);
+}
+
+void
+new_symtab(void)
+{
+	struct symtab *tab;
+
+	tab = malloc(sizeof(struct symtab));
+	memset(tab, 0, sizeof(struct symtab));
+	tab->prev = symtab;
+	tab->level = symtab->level + 1;
+	symtab = tab;
+}
+
+void
+del_symtab(void)
+{
+	assert(symtab->level > 0);
+
+	symtab = symtab->prev;
 }
