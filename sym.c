@@ -7,7 +7,6 @@
 
 static struct symtab l0_symtab;
 struct symtab *symtab = &l0_symtab;
-int ar_offset;
 
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
 
@@ -65,8 +64,9 @@ add_sym(char *name)
 	s = malloc(sizeof(struct symbol));
 	memset(s, 0, sizeof(struct symbol));
 	s->name = name;
-	s->val = ar_offset;
-	ar_offset += 8;
+	s->val = symtab->ar_offset;
+	s->tab = symtab;
+	symtab->ar_offset += 8;
 
 	s->next = symtab->tab[hash];
 	symtab->tab[hash] = s;
@@ -83,6 +83,8 @@ new_symtab(void)
 	memset(tab, 0, sizeof(struct symtab));
 	tab->prev = symtab;
 	tab->level = symtab->level + 1;
+	if (tab->level != 1)
+		tab->ar_offset = symtab->ar_offset;
 	symtab = tab;
 }
 

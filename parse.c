@@ -27,6 +27,8 @@ new_node(enum node_op op, struct node *l, struct node *r, void *v)
 static void
 next(void)
 {
+	if (tok->tok == TOK_EOF)
+		errx(1, "Unexpected EOF at line %d\n", tok->line);
 	tok = tok->next;
 }
 
@@ -91,6 +93,8 @@ static struct node *
 symbol(void)
 {
 	struct symbol *s;
+	struct param *p, *p_head, *p_last;
+	struct node *n;
 
 	if ((s = find_sym(tok->str)) == NULL)
 		errx(1, "'%s' undeclared at line %d", tok->str,
@@ -98,8 +102,24 @@ symbol(void)
 	match(TOK_ID);
 	if (s->func) {
 		match('(');
-		match(')');
-		return (new_node(N_CALL, NULL, NULL, s));
+		p_head = p_last = NULL;
+		while (!maybe_match(')')) {
+			p = malloc(sizeof(struct param));
+			memset(p, 0, sizeof(struct param));
+			p->n = expr();
+			if (!p_head)
+				p_head = p;
+			if (p_last)
+				p_last->next = p;
+			p_last = p;
+			if (!maybe_match(',')) {
+				match(')');
+				break;
+			}
+		}
+		n = new_node(N_CALL, NULL, NULL, s);
+		n->params = p_head;
+		return (n);
 	} else
 		return (new_node(N_SYM, NULL, NULL, s));
 }
@@ -338,6 +358,7 @@ stmts()
 void
 func(void) {
 	struct symbol *s;
+	struct param *p, *head_p, *last_p;
 	struct node *n;
 	int _type;
 
@@ -351,17 +372,44 @@ func(void) {
 		    tok->line);
 	s = add_sym(tok->str);
 	s->func = 1;
+	s->type = _type;
 	next();
 
 	new_symtab();
+	s->tab = symtab;
 	match('(');
-	match(')');
+	head_p = last_p = NULL;
+	while (!maybe_match(')')) {
+		p = malloc(sizeof(struct param));
+		memset(p, 0, sizeof(struct param));
+		if (!head_p)
+			head_p = p;
+		if (last_p)
+			last_p->next = p;
+		last_p = p;
+
+		_type = type();
+		if (tok->tok != TOK_ID)
+			errx(1, "Syntax error at line %d, Expected symbol, got"
+			    " %d", tok->line, tok->tok);
+		if ((find_sym(tok->str)) != NULL)
+			errx(1, "'%s' redeclared at line %d", tok->str,
+			    tok->line);
+		p->sym = add_sym(tok->str);
+		p->sym->type = _type;
+		next();
+		if (!maybe_match(',')) {
+			match(')');
+			break;
+		}
+	}
 
 	match('{');
 	n = compound_stmt();
 	del_symtab();
 
 	s->body = n;
+	s->params = head_p;
 }
 
 void

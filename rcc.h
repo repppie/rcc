@@ -82,7 +82,10 @@ struct node {
 	struct node *l;
 	struct node *r;
 	struct node *next;
-	struct node *cond;
+	union {
+		struct node *cond;
+		struct param *params;
+	};
 	union {
 		long val;
 		char *str;
@@ -141,7 +144,6 @@ enum ir_op {
 #define	SYMTAB_SIZE 1021
 
 extern struct symtab *symtab;
-extern int ar_offset;
 
 struct symbol {
 	struct symbol *next;
@@ -149,14 +151,27 @@ struct symbol {
 	int val;
 	int assigned;
 	int func;
+	int type;
 	struct node *body;
 	struct ir *ir;
+	struct param *params;
+	struct symtab *tab;
 };
 
 struct symtab {
 	struct symbol *tab[SYMTAB_SIZE];
 	struct symtab *prev;
 	int level;
+	int ar_offset;
+};
+
+struct param {
+	struct param *next;
+	union {
+		struct node *n;
+		struct symbol *sym;
+	};
+	int val;
 };
 
 void lex(FILE *f);

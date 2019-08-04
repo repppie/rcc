@@ -72,6 +72,7 @@ static int
 gen_ir_op(struct node *n)
 {
 	struct symbol *sym;
+	struct param *p;
 	int dst, l, op, r, tmp;
 
 	switch (n->op) {
@@ -121,7 +122,11 @@ gen_ir_op(struct node *n)
 		return (-1);
 	case N_CALL:
 		dst = alloc_reg();
-		new_ir(IR_CALL, (long)n->sym, 0, dst);
+		for (p = n->params; p; p = p->next)
+			 p->val = gen_ir_op(p->n);
+		new_ir(IR_CALL, (long)n->sym, (long)n->params, dst);
+		for (p = n->params; p; p = p->next)
+			new_ir(IR_KILL, p->val, 0, 0);
 		return (dst);
 	case N_RETURN:
 		l = gen_ir_op(n->l);
@@ -147,15 +152,17 @@ gen_ir_op(struct node *n)
 void
 gen_ir(void)
 {
+	struct symbol *s;
 	int i;
 
 	for (i = 0; i < SYMTAB_SIZE; i++) {
-		if (symtab->tab[i] && symtab->tab[i]->body) {
+		s = symtab->tab[i];
+		if (s && s->body) {
 			head_ir = NULL;
 			last_ir = NULL;
-			new_ir(IR_ENTER, ar_offset, 0, 0);
-			gen_ir_op(symtab->tab[i]->body);
-			symtab->tab[i]->ir = head_ir;
+			new_ir(IR_ENTER, s->tab->ar_offset, (long)s->params, 0);
+			gen_ir_op(s->body);
+			s->ir = head_ir;
 		}
 	}
 }
