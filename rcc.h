@@ -108,6 +108,7 @@ enum node_op {
 	N_EQ,
 	N_NE,
 	N_IF,
+	N_WHILE,
 };
 
 extern struct ir *head_ir;
@@ -136,6 +137,7 @@ enum ir_op {
 	IR_EQ,
 	IR_NE,
 	IR_CBR,
+	IR_JUMP,
 	IR_LABEL,
 	IR_CALL,
 	NR_IR_OPS,

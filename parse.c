@@ -299,6 +299,21 @@ _if(void)
 }
 
 static struct node *
+_while(void)
+{
+	struct node *cond, *l, *n;
+
+	match(TOK_WHILE);
+	match('(');
+	cond = expr();
+	match(')');
+	l = stmts();
+	n = new_node(N_WHILE, l, 0, 0);
+	n->cond = cond;
+	return (n);
+}
+
+static struct node *
 stmt(void)
 {
 	struct node *n;
@@ -317,6 +332,8 @@ stmt(void)
 			n = ret();
 		else if (tok->tok == TOK_IF)
 			n = _if();
+		else if (tok->tok == TOK_WHILE)
+			n = _while();
 		else {
 			n = expr();
 			match(';');

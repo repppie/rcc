@@ -69,6 +69,26 @@ gen_if(struct node *n)
 }
 
 static int
+gen_while(struct node *n)
+{
+	int cond, start, in, out;
+
+	start = new_label();
+	in = new_label();
+	out = new_label();
+	new_ir(IR_LABEL, start, 0, 0);
+	cond = gen_ir_op(n->cond);
+	new_ir(IR_CBR, cond, in, out);
+	new_ir(IR_KILL, cond, 0, 0);
+	new_ir(IR_LABEL, in, 0, 0);
+	gen_ir_op(n->l);
+	new_ir(IR_JUMP, 0, 0, start);
+	new_ir(IR_LABEL, out, 0, 0);
+
+	return (-1);
+}
+
+static int
 gen_ir_op(struct node *n)
 {
 	struct symbol *sym;
@@ -143,6 +163,8 @@ gen_ir_op(struct node *n)
 		return (dst);
 	case N_IF:
 		return (gen_if(n));
+	case N_WHILE:
+		return (gen_while(n));
 	default:
 		errx(1, "Unknown node op %d", n->op);
 		return (-1);
@@ -183,6 +205,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_EQ] = "EQ",
     [IR_NE] = "NE",
     [IR_CBR] = "CBR",
+    [IR_JUMP] = "JUMP",
     [IR_LABEL] = "LABEL",
     [IR_CALL] = "CALL",
 };

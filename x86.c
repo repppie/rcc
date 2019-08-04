@@ -175,6 +175,9 @@ emit_x86_op(struct ir *ir)
 		emit("jne ___l%d", ir->o2);
 		emit("je ___l%d", ir->dst);
 		break;
+	case IR_JUMP:
+		emit("jmp ___l%d", ir->dst);
+		break;
 	case IR_LABEL:
 		emit("___l%d:", ir->o1);
 		break;
