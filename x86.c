@@ -114,6 +114,14 @@ emit_x86_op(struct ir *ir)
 	case IR_LOADI:
 		emit("movq $%ld, %%%s", ir->o1, x86_reg(ir->dst, 8));
 		break;
+	case IR_LOAD:
+		emit("movq (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		    8));
+		break;
+	case IR_LOAD32:
+		emit("movl (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		    4));
+		break;
 	case IR_LOADO:
 		emit("movq 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
@@ -136,7 +144,8 @@ emit_x86_op(struct ir *ir)
 	case IR_ADD:
 	case IR_SUB:
 	case IR_MUL:
-		emit("pushq %%%s", x86_reg(ir->o1, 8));
+		if (ir->next->op !=  IR_KILL || ir->next->o1 != ir->o1)
+			emit("pushq %%%s", x86_reg(ir->o1, 8));
 		if (ir->op == IR_ADD)
 			emit("addq %%%s, %%%s", x86_reg(ir->o2, 8),
 			    x86_reg(ir->o1, 8));
@@ -148,7 +157,8 @@ emit_x86_op(struct ir *ir)
 			    x86_reg(ir->o1, 8));
 		emit("movq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
 		    8));
-		emit("popq %%%s", x86_reg(ir->o1, 8));
+		if (ir->next->op !=  IR_KILL || ir->next->o1 != ir->o1)
+			emit("popq %%%s", x86_reg(ir->o1, 8));
 		break;
 	case IR_DIV:
 		emit("pushq %%rax");

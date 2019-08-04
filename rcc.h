@@ -109,6 +109,8 @@ enum node_op {
 	N_NE,
 	N_IF,
 	N_WHILE,
+	N_DEREF,
+	N_ADDR,
 };
 
 extern struct ir *head_ir;
@@ -128,6 +130,8 @@ enum ir_op {
 	IR_MUL,
 	IR_DIV,
 	IR_LOADI,
+	IR_LOAD,
+	IR_LOAD32,
 	IR_LOADO,
 	IR_LOADO32,
 	IR_STOREO,
@@ -156,6 +160,7 @@ struct symbol {
 	int assigned;
 	int func;
 	int typesize;
+	int stacksize;
 	struct node *body;
 	struct ir *ir;
 	struct param *params;
@@ -188,7 +193,7 @@ void gen_ir(void);
 
 void emit_x86(void);
 
-struct symbol *add_sym(char *name, int size);
+struct symbol *add_sym(char *name, int size, int stacksize);
 struct symbol *find_sym(char *name);
 struct symbol *find_global_sym(char *name);
 void new_symtab(void);

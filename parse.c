@@ -82,8 +82,9 @@ typesize(struct token *tok) {
 }
 
 static int
-type(void) {
+type(int *stacksize) {
 	struct token *t;
+	int ptr;
 
 	t = tok;
 	if (is_type(tok))
@@ -91,6 +92,13 @@ type(void) {
 	else
 		errx(1, "Syntax error at line %d: Expected type got %d\n",
 		    tok->line, tok->tok);
+	ptr = 0;
+	while (maybe_match('*'))
+		ptr = 1;
+
+	if (stacksize)
+		*stacksize = ptr ? 8 : typesize(t);
+
 	return (typesize(t));
 }
 
@@ -160,17 +168,35 @@ primary_expr(void)
 }
 
 static struct node *
+unary_expr(void)
+{
+	struct node *n;
+
+	if (tok->tok == '*') {
+		next();
+		n = expr();
+		return (new_node(N_DEREF, n, NULL, 0));
+	} else if (tok->tok == '&') {
+		next();
+		n = symbol();
+		return (new_node(N_ADDR, n, NULL, 0));
+	}
+	return (primary_expr());
+
+}
+
+static struct node *
 multiplicative_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = primary_expr();
+	l = unary_expr();
 
 	while (tok->tok == '*' || tok->tok == '/') {
 		t = tok->tok;
 		next();
-		r = primary_expr();
+		r = unary_expr();
 		l = new_node(t == '*' ? N_MUL : N_DIV, l, r, 0);
 	}
 
@@ -220,20 +246,25 @@ decl(void)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
-	int _type;
+	int _type, __type, stacksize;
 
-	_type = type();
+	__type = _type = type(&stacksize);
 
 	last = head = NULL;
 	while (1) {
 		n = NULL;
+		stacksize = __type;
+		if (tok->tok == '*') {
+			stacksize = 8;
+			next();
+		}
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d: Expected identifier,"
 			    " got %d\n", tok->line, tok->tok);
 		if (find_sym(tok->str) != NULL)
 			errx(1, "Redeclaring '%s' at line %d\n", tok->str,
 			    tok->line);
-		s = add_sym(tok->str, _type);
+		s = add_sym(tok->str, _type, stacksize);
 	
 		next();
 		if (tok->tok == '=') {
@@ -397,9 +428,9 @@ func(void) {
 	struct symbol *s;
 	struct param *p, *head_p, *last_p;
 	struct node *n;
-	int _type;
+	int _type, stacksize;
 
-	_type = type();
+	_type = type(NULL);
 
 	if (tok->tok != TOK_ID)
 		errx(1, "Syntax error at line %d, Expected symbol, got %d",
@@ -407,7 +438,7 @@ func(void) {
 	if ((find_sym(tok->str)) != NULL)
 		errx(1, "'%s' redeclared at line %d", tok->str,
 		    tok->line);
-	s = add_sym(tok->str, _type);
+	s = add_sym(tok->str, _type, 0);
 	s->func = 1;
 	next();
 
@@ -424,14 +455,14 @@ func(void) {
 			last_p->next = p;
 		last_p = p;
 
-		_type = type();
+		_type = type(&stacksize);
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d, Expected symbol, got"
 			    " %d", tok->line, tok->tok);
 		if ((find_sym(tok->str)) != NULL)
 			errx(1, "'%s' redeclared at line %d", tok->str,
 			    tok->line);
-		p->sym = add_sym(tok->str, _type);
+		p->sym = add_sym(tok->str, _type, stacksize);
 		next();
 		if (!maybe_match(',')) {
 			match(')');
