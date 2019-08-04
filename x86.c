@@ -238,6 +238,12 @@ emit_x86(void)
 		err(1, "fopen");
 
 	emit("fmt: .asciz \"%%ld\\n\"");
+	emit("print:");
+	emit("movq %%rdi, %%rsi");
+	emit("leaq fmt, %%rdi");
+	emit("xorl %%eax, %%eax");
+	emit("callq printf");
+	emit("retq");
 
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		if (symtab->tab[i] && symtab->tab[i]->body) {

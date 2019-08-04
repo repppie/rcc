@@ -4,6 +4,15 @@
 
 #include "rcc.h"
 
+void
+add_special_funcs(void)
+{
+	struct symbol *s;
+
+	s = add_sym("print");
+	s->func = 1;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -17,6 +26,7 @@ main(int argc, char **argv)
 
 	lex(f);
 
+	add_special_funcs();
 	parse();
 	gen_ir();
 	emit_x86();
