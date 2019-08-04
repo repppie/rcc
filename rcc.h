@@ -89,7 +89,6 @@ struct node {
 		struct symbol *sym;
 	};
 	int op;
-	int killable;
 };
 
 enum node_op {
@@ -124,7 +123,10 @@ enum ir_op {
 	IR_MUL,
 	IR_DIV,
 	IR_LOADI,
+	IR_LOADO,
+	IR_STOREO,
 	IR_KILL,
+	IR_ENTER,
 	IR_RET,
 	IR_MOV,
 	IR_EQ,
@@ -133,6 +135,8 @@ enum ir_op {
 	IR_LABEL,
 	NR_IR_OPS,
 };
+
+int ar_offset;
 
 struct symbol {
 	struct symbol *next;

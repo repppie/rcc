@@ -33,7 +33,7 @@ emit(char *s, ...)
 static int ir_regs[MAX_IR_REGS];
 #define	NR_X86_REGS 13
 static int x86_regs[NR_X86_REGS];
-static char *x86_regs_names[NR_X86_REGS] = { "XXX", "rax", "rbx", "rcx",
+static char *x86_regs_names[NR_X86_REGS] = { "rsp", "rax", "rbx", "rcx",
     "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
 static char *x86_32_regs_names[NR_X86_REGS] = { "XXX", "eax", "ebx", "ecx",
     "edx", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
@@ -62,7 +62,7 @@ next_x86_reg(void)
 static char *
 x86_reg(int ireg, int size)
 {
-	if (!ir_regs[ireg])
+	if (ireg && !ir_regs[ireg])
 		ir_regs[ireg] = next_x86_reg();
 
 	if (size == 1)
@@ -106,6 +106,14 @@ emit_x86_op(struct ir *ir)
 	switch (ir->op) {
 	case IR_LOADI:
 		emit("movq $%ld, %%%s", ir->o1, x86_reg(ir->dst, 8));
+		break;
+	case IR_LOADO:
+		emit("movq 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
+		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
+		break;
+	case IR_STOREO:
+		emit("movq %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 8),
+		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
 		break;
 	case IR_KILL:
 		kill_reg(ir->o1);
@@ -166,11 +174,17 @@ emit_x86_op(struct ir *ir)
 	case IR_MOV:
 		emit("mov %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
 		break;
+	case IR_ENTER:
+		emit("pushq %%rbp");
+		emit("movq %%rsp, %%rbp");
+		emit("subq $%d, %%rsp", ir->o1);
+		break;
 	case IR_RET:
 		emit("leaq fmt, %%rdi");
 		emit("movq %%%s, %%rsi", x86_reg(ir->o1, 8));
 		emit("xorl %%eax,%%eax");
 		emit("callq printf");
+		emit("leaveq");
 		emit("retq");
 		break;
 	default:
@@ -194,6 +208,7 @@ emit_x86(void)
 		emit_x86_op(ir);
 
 	emit("xorl %%eax,%%eax");
+	emit("leave");
 	emit("retq");
 
 	if (fclose(out))

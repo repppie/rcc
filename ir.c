@@ -39,19 +39,14 @@ new_ir(int op, int o1, int o2, int dst)
 	return (ir);
 }
 
-static int cur_reg;
+/* IR register 0 is pointer to AR. */
+#define	RARP 0
+static int cur_reg = 1;
 
 static int
 alloc_reg(void)
 {
 	return cur_reg++;
-}
-
-static void
-maybe_kill(struct node *n, int r)
-{
-	if (n->killable)
-		new_ir(IR_KILL, r, 0, 0);
 }
 
 static int
@@ -63,7 +58,7 @@ gen_if(struct node *n)
 	if_lbl = new_label();
 	else_lbl = new_label();
 	new_ir(IR_CBR, cond, if_lbl, else_lbl);
-	maybe_kill(n->cond, cond);
+	new_ir(IR_KILL, cond, 0, 0);
 	new_ir(IR_LABEL, if_lbl, 0, 0);
 	gen_ir_op(n->l);
 	new_ir(IR_LABEL, else_lbl, 0, 0);
@@ -77,14 +72,13 @@ static int
 gen_ir_op(struct node *n)
 {
 	struct symbol *sym;
-	int dst, l, op, r;
+	int dst, l, op, r, tmp;
 
 	switch (n->op) {
 	case N_ADD:
 	case N_SUB:
 	case N_MUL:
 	case N_DIV:
-		n->killable = 1;
 		if (n->op == N_ADD)
 			op = IR_ADD;
 		else if (n->op == N_SUB)
@@ -98,26 +92,28 @@ gen_ir_op(struct node *n)
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
 		new_ir(op, l, r, dst);
-		maybe_kill(n->l, l);
-		maybe_kill(n->r, r);
+		new_ir(IR_KILL, l, 0, 0);
+		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
 	case N_CONSTANT:
-		n->killable = 1;
 		dst = alloc_reg();
 		new_ir(IR_LOADI, n->val, 0, dst);
 		return (dst);
 	case N_SYM:
-		assert(n->sym->assigned);
-		return (n->sym->val);
+		dst = alloc_reg();
+		tmp = alloc_reg();
+		new_ir(IR_LOADI, n->sym->val, 0, tmp);
+		new_ir(IR_LOADO, RARP, tmp, dst);
+		new_ir(IR_KILL, tmp, 0, 0);
+		return (dst);
 	case N_ASSIGN:
+		assert(n->l->op == N_SYM);
 		sym = n->l->sym;
-		if (!sym->assigned) {
-			sym->assigned = 1;
-			sym->val = alloc_reg();
-		}
 		r = gen_ir_op(n->r);
-		new_ir(IR_MOV, r, 0, sym->val);
-		maybe_kill(n->r, r);
+		tmp = alloc_reg();
+		new_ir(IR_LOADI, sym->val, 0, tmp);
+		new_ir(IR_STOREO, r, RARP, tmp);
+		new_ir(IR_KILL, tmp, 0, 0);
 		return (sym->val);
 	case N_MULTIPLE:
 		for (n = n->l; n; n = n->next)
@@ -129,13 +125,12 @@ gen_ir_op(struct node *n)
 		return (-1);
 	case N_NE:
 	case N_EQ:
-		n->killable = 1;
 		dst = alloc_reg();
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		new_ir(n->op == N_EQ ? IR_EQ : IR_NE, l, r, dst);
-		maybe_kill(n->l, l);
-		maybe_kill(n->r, r);
+		new_ir(IR_KILL, l, 0, 0);
+		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
 	case N_IF:
 		return (gen_if(n));
@@ -148,9 +143,8 @@ gen_ir_op(struct node *n)
 void
 gen_ir(struct node *n)
 {
-	int r;
-
-	r = gen_ir_op(n);
+	new_ir(IR_ENTER, ar_offset, 0, 0);
+	gen_ir_op(n);
 }
 
 static char *ir_names[NR_IR_OPS] = {
@@ -159,9 +153,12 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_MUL] = "MUL",
     [IR_DIV] = "DIV",
     [IR_LOADI] = "LOADI",
+    [IR_LOADO] = "LOADO",
+    [IR_STOREO] = "STOREO",
     [IR_KILL] = "KILL",
     [IR_RET] = "RET",
     [IR_MOV] = "MOV",
+    [IR_ENTER] = "ENTER",
     [IR_RET] = "RET",
     [IR_EQ] = "EQ",
     [IR_NE] = "NE",

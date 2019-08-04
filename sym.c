@@ -6,6 +6,7 @@
 
 #define	SYMTAB_SIZE 1021
 static struct symbol *symtab[SYMTAB_SIZE];
+int ar_offset;
 
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
 
@@ -48,6 +49,8 @@ add_sym(char *name)
 	s = malloc(sizeof(struct symbol));
 	memset(s, 0, sizeof(struct symbol));
 	s->name = name;
+	s->val = ar_offset;
+	ar_offset += 8;
 
 	s->next = symtab[hash];
 	symtab[hash] = s;
