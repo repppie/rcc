@@ -207,6 +207,7 @@ gen_ir_op(struct node *n)
 			assert(n->l->l->op == N_SYM);
 			l = gen_ir_op(n->l->l);
 			ir_store(r, l, n->l->l->sym->typesize);
+			new_ir(IR_KILL, r, 0, 0);
 			return (l);
 		}
 		sym = n->l->sym;
@@ -214,6 +215,7 @@ gen_ir_op(struct node *n)
 		new_ir(IR_LOADI, sym->val, 0, tmp);
 		ir_storeo(r, RARP, tmp, sym->stacksize);
 		new_ir(IR_KILL, tmp, 0, 0);
+		new_ir(IR_KILL, r, 0, 0);
 		return (sym->val);
 	case N_MULTIPLE:
 		for (n = n->l; n; n = n->next)
