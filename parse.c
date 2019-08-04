@@ -239,7 +239,7 @@ decl(void)
 	match(';');
 
 	n = head;
-	if (head->next)
+	if (head && head->next)
 		n = new_node(N_MULTIPLE, head, NULL, 0);
 
 	return (n);
