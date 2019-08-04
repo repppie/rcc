@@ -174,7 +174,7 @@ unary_expr(void)
 
 	if (tok->tok == '*') {
 		next();
-		n = expr();
+		n = unary_expr();
 		return (new_node(N_DEREF, n, NULL, 0));
 	} else if (tok->tok == '&') {
 		next();
@@ -236,9 +236,24 @@ equality_expr(void)
 }
 
 static struct node *
+assign_expr(void)
+{
+	struct node *l, *r, *n;
+
+	l = equality_expr();
+	if (maybe_match('=')) {
+		r = expr();
+		n = new_node(N_ASSIGN, l, r, 0);
+		return (n);
+	} else
+		return (l);
+
+}
+
+static struct node *
 expr(void)
 {
-	return (equality_expr());
+	return (assign_expr());
 }
 
 static struct node *
@@ -246,14 +261,14 @@ decl(void)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
-	int _type, __type, stacksize;
+	int _type, stacksize, __stacksize;
 
-	__type = _type = type(&stacksize);
+	_type = type(&stacksize);
 
 	last = head = NULL;
 	while (1) {
 		n = NULL;
-		stacksize = __type;
+		stacksize = __stacksize;
 		if (tok->tok == '*') {
 			stacksize = 8;
 			next();
@@ -276,7 +291,8 @@ decl(void)
 				head = n;
 			if (last)
 				last->next = n;
-			last = n;
+			if (n)
+				last = n;
 		}
 		if (tok->tok != ',')
 			break;
@@ -288,28 +304,6 @@ decl(void)
 	n = head;
 	if (head && head->next)
 		n = new_node(N_MULTIPLE, head, NULL, 0);
-
-	return (n);
-}
-
-static struct node *
-assign(void)
-{
-	struct symbol *s;
-	struct node *l, *r, *n;
-
-	if (tok->tok != TOK_ID)
-		errx(1, "Syntax error at line %d: Expected identifier,"
-		    " got %d\n", tok->line, tok->tok);
-	if ((s = find_sym(tok->str)) == NULL)
-		errx(1, "'%s' undeclared at line %d\n", tok->str,
-		    tok->line);
-	next();
-	match('=');
-	l = new_node(N_SYM, NULL, NULL, s);
-	r = expr();
-	n = new_node(N_ASSIGN, l, r, 0);
-	match(';');
 
 	return (n);
 }
@@ -377,9 +371,7 @@ stmt(void)
 	if (is_type(tok)) {
 		n = decl();
 	} else {
-		if (tok->next->tok == '=')
-			n = assign();
-		else if (tok->tok == TOK_RETURN)
+		if (tok->tok == TOK_RETURN)
 			n = ret();
 		else if (tok->tok == TOK_IF)
 			n = _if();
@@ -405,13 +397,14 @@ compound_stmt(void)
 			head = n;
 		if (last)
 			last->next = n;
-		last = n;
+		if (n)
+			last = n;
 		if (maybe_match('}'))
 			break;
 	}
 	if (head->next)
-		n = new_node(N_MULTIPLE, head, NULL, 0);
-	return (n);
+		head = new_node(N_MULTIPLE, head, NULL, 0);
+	return (head);
 }
 
 static struct node *

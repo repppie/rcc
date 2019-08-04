@@ -49,7 +49,7 @@ alloc_reg(void)
 	return cur_reg++;
 }
 
-void
+static void
 ir_load(long o1, long dst, int size)
 {
 	switch (size) {
@@ -64,7 +64,7 @@ ir_load(long o1, long dst, int size)
 	}
 }
 
-void
+static void
 ir_loado(long o1, long o2, long dst, int size)
 {
 	switch (size) {
@@ -79,7 +79,22 @@ ir_loado(long o1, long o2, long dst, int size)
 	}
 }
 
-void
+static void
+ir_store(long o1, long dst, int size)
+{
+	switch (size) {
+	case 8:
+		new_ir(IR_STORE, o1, 0, dst);
+		break;
+	case 4:
+		new_ir(IR_STORE32, o1, 0, dst);
+		break;
+	default:
+		errx(1, "Invalid store size %d", size);
+	}
+}
+
+static void
 ir_storeo(long o1, long o2, long dst, int size)
 {
 	switch (size) {
@@ -187,9 +202,14 @@ gen_ir_op(struct node *n)
 		new_ir(IR_KILL, tmp, 0, 0);
 		return (dst);
 	case N_ASSIGN:
-		assert(n->l->op == N_SYM);
-		sym = n->l->sym;
 		r = gen_ir_op(n->r);
+		if (n->l->op == N_DEREF) {
+			assert(n->l->l->op == N_SYM);
+			l = gen_ir_op(n->l->l);
+			ir_store(r, l, n->l->l->sym->typesize);
+			return (l);
+		}
+		sym = n->l->sym;
 		tmp = alloc_reg();
 		new_ir(IR_LOADI, sym->val, 0, tmp);
 		ir_storeo(r, RARP, tmp, sym->stacksize);
@@ -260,6 +280,8 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_LOAD32] = "LOAD32",
     [IR_LOADO] = "LOADO",
     [IR_LOADO32] = "LOADO32",
+    [IR_STORE] = "STORE",
+    [IR_STORE32] = "STORE32",
     [IR_STOREO] = "STOREO",
     [IR_STOREO32] = "STOREO32",
     [IR_KILL] = "KILL",

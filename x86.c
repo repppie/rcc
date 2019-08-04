@@ -130,6 +130,14 @@ emit_x86_op(struct ir *ir)
 		emit("movl 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 4));
 		break;
+	case IR_STORE:
+		emit("movq %%%s, (%%%s)", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		    8));
+		break;
+	case IR_STORE32:
+		emit("movl %%%s, (%%%s)", x86_reg(ir->o1, 4), x86_reg(ir->dst,
+		    8));
+		break;
 	case IR_STOREO:
 		emit("movq %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
