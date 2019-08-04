@@ -272,9 +272,13 @@ ret(void)
 {
 	struct node *n;
 
+	n = NULL;
 	match(TOK_RETURN);
+	if (maybe_match(';'))
+		goto out;
 	n = expr();
 	match(';');
+out:
 	return (new_node(N_RETURN, n, NULL, 0));
 }
 

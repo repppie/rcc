@@ -149,7 +149,9 @@ gen_ir_op(struct node *n)
 			new_ir(IR_KILL, p->val, 0, 0);
 		return (dst);
 	case N_RETURN:
-		l = gen_ir_op(n->l);
+		l = -1;
+		if (n->l)
+			l = gen_ir_op(n->l);
 		new_ir(IR_RET, l, 0, 0);
 		return (-1);
 	case N_NE:
