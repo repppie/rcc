@@ -10,10 +10,10 @@ struct symtab *symtab = &l0_symtab;
 
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
 
-static int
+static unsigned int
 hash_str(char *s)
 {
-	int hash;
+	unsigned int hash;
 
 	hash = 0;
 	while (*s)
@@ -26,7 +26,7 @@ static struct symbol *
 _find_sym(char *name, struct symtab *tab)
 {
 	struct symbol *s;
-	int hash;
+	unsigned int hash;
 
 	hash = hash_str(name);
 	while (tab) {
@@ -54,7 +54,7 @@ struct symbol *
 add_sym(char *name)
 {
 	struct symbol *s;
-	int hash;
+	unsigned int hash;
 
 	hash = hash_str(name);
 	for (s = symtab->tab[hash]; s; s = s->next)
