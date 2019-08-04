@@ -67,16 +67,31 @@ is_type(struct token *tok) {
 }
 
 static int
-type(void) {
-	int t;
+typesize(struct token *tok) {
+	switch (tok->tok) {
+	case TOK_LONG:
+		return (8);
+	case TOK_CHAR:
+	case TOK_SHORT:
+	case TOK_INT:
+		return (4);
+	case TOK_VOID:
+	default:
+		return (0);
+	}
+}
 
-	t = tok->tok;
+static int
+type(void) {
+	struct token *t;
+
+	t = tok;
 	if (is_type(tok))
 		next();
 	else
 		errx(1, "Syntax error at line %d: Expected type got %d\n",
 		    tok->line, tok->tok);
-	return (t);
+	return (typesize(t));
 }
 
 static struct node *
@@ -205,8 +220,9 @@ decl(void)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
+	int _type;
 
-	next();
+	_type = type();
 
 	last = head = NULL;
 	while (1) {
@@ -217,7 +233,7 @@ decl(void)
 		if (find_sym(tok->str) != NULL)
 			errx(1, "Redeclaring '%s' at line %d\n", tok->str,
 			    tok->line);
-		s = add_sym(tok->str);
+		s = add_sym(tok->str, _type);
 	
 		next();
 		if (tok->tok == '=') {
@@ -391,9 +407,8 @@ func(void) {
 	if ((find_sym(tok->str)) != NULL)
 		errx(1, "'%s' redeclared at line %d", tok->str,
 		    tok->line);
-	s = add_sym(tok->str);
+	s = add_sym(tok->str, _type);
 	s->func = 1;
-	s->type = _type;
 	next();
 
 	new_symtab();
@@ -416,8 +431,7 @@ func(void) {
 		if ((find_sym(tok->str)) != NULL)
 			errx(1, "'%s' redeclared at line %d", tok->str,
 			    tok->line);
-		p->sym = add_sym(tok->str);
-		p->sym->type = _type;
+		p->sym = add_sym(tok->str, _type);
 		next();
 		if (!maybe_match(',')) {
 			match(')');

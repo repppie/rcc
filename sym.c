@@ -51,7 +51,7 @@ find_global_sym(char *name)
 }
 
 struct symbol *
-add_sym(char *name)
+add_sym(char *name, int size)
 {
 	struct symbol *s;
 	unsigned int hash;
@@ -66,7 +66,8 @@ add_sym(char *name)
 	s->name = name;
 	s->val = symtab->ar_offset;
 	s->tab = symtab;
-	symtab->ar_offset += 8;
+	s->typesize = size;
+	symtab->ar_offset += size;
 
 	s->next = symtab->tab[hash];
 	symtab->tab[hash] = s;

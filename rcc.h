@@ -129,7 +129,9 @@ enum ir_op {
 	IR_DIV,
 	IR_LOADI,
 	IR_LOADO,
+	IR_LOADO32,
 	IR_STOREO,
+	IR_STOREO32,
 	IR_KILL,
 	IR_ENTER,
 	IR_RET,
@@ -153,7 +155,7 @@ struct symbol {
 	int val;
 	int assigned;
 	int func;
-	int type;
+	int typesize;
 	struct node *body;
 	struct ir *ir;
 	struct param *params;
@@ -186,7 +188,7 @@ void gen_ir(void);
 
 void emit_x86(void);
 
-struct symbol *add_sym(char *name);
+struct symbol *add_sym(char *name, int size);
 struct symbol *find_sym(char *name);
 struct symbol *find_global_sym(char *name);
 void new_symtab(void);
