@@ -223,9 +223,10 @@ gen_ir_op(struct node *n)
 		return (-1);
 	case N_CALL:
 		dst = alloc_reg();
+		assert(n->l->op == N_SYM);
 		for (p = n->params; p; p = p->next)
 			 p->val = gen_ir_op(p->n);
-		new_ir(IR_CALL, (long)n->sym, (long)n->params, dst);
+		new_ir(IR_CALL, (long)n->l->sym, (long)n->params, dst);
 		for (p = n->params; p; p = p->next)
 			new_ir(IR_KILL, p->val, 0, 0);
 		return (dst);

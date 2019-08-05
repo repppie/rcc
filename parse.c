@@ -116,35 +116,12 @@ static struct node *
 symbol(void)
 {
 	struct symbol *s;
-	struct param *p, *p_head, *p_last;
-	struct node *n;
 
 	if ((s = find_sym(tok->str)) == NULL)
 		errx(1, "'%s' undeclared at line %d", tok->str,
 		    tok->line);
 	match(TOK_ID);
-	if (s->func) {
-		match('(');
-		p_head = p_last = NULL;
-		while (!maybe_match(')')) {
-			p = malloc(sizeof(struct param));
-			memset(p, 0, sizeof(struct param));
-			p->n = expr();
-			if (!p_head)
-				p_head = p;
-			if (p_last)
-				p_last->next = p;
-			p_last = p;
-			if (!maybe_match(',')) {
-				match(')');
-				break;
-			}
-		}
-		n = new_node(N_CALL, NULL, NULL, s);
-		n->params = p_head;
-		return (n);
-	} else
-		return (new_node(N_SYM, NULL, NULL, s));
+	return (new_node(N_SYM, NULL, NULL, s));
 }
 
 static struct node *
@@ -167,6 +144,45 @@ primary_expr(void)
 	}
 }
 
+static struct param *
+argument_expr_list(void)
+{
+	struct param *p, *p_head, *p_last;
+
+	p_head = p_last = NULL;
+	while (!maybe_match(')')) {
+		p = malloc(sizeof(struct param));
+		memset(p, 0, sizeof(struct param));
+		p->n = expr();
+		if (!p_head)
+			p_head = p;
+		if (p_last)
+			p_last->next = p;
+		p_last = p;
+		if (!maybe_match(',')) {
+			match(')');
+			break;
+		}
+	}
+	return (p_head);
+}
+
+static struct node *
+postfix_expr(void)
+{
+	struct node *n;
+
+	n = primary_expr();
+	while (tok->tok == '(') {
+		if (maybe_match('(')) {
+			n = new_node(N_CALL, n, NULL, NULL);
+			n->params = argument_expr_list();
+			return (n);
+		}
+	}
+	return (n);
+}
+
 static struct node *
 unary_expr(void)
 {
@@ -181,7 +197,7 @@ unary_expr(void)
 		n = symbol();
 		return (new_node(N_ADDR, n, NULL, 0));
 	}
-	return (primary_expr());
+	return (postfix_expr());
 
 }
 
@@ -192,7 +208,6 @@ multiplicative_expr(void)
 	enum tokens t;
 
 	l = unary_expr();
-
 	while (tok->tok == '*' || tok->tok == '/') {
 		t = tok->tok;
 		next();
