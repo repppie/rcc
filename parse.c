@@ -279,6 +279,7 @@ decl(void)
 	int _type, stacksize, __stacksize;
 
 	_type = type(&stacksize);
+	__stacksize = stacksize;
 
 	last = head = NULL;
 	while (1) {

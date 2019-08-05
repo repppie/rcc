@@ -43,10 +43,29 @@ static char *x86_8_regs_names[NR_X86_REGS] = { "XXX", "al", "bl", "cl", "dl",
     "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b" };
 
 #define	NR_FUNC_PARAM_REGS 6
-static char *func_param_regs[NR_FUNC_PARAM_REGS] = { "rdi", "rsi", "rdx", "rcx",
+static char *param_regs[NR_FUNC_PARAM_REGS] = { "rdi", "rsi", "rdx", "rcx",
     "r8", "r9" };
+static char *param_32_regs[NR_FUNC_PARAM_REGS] = { "edi", "esi", "edx", "ecx",
+    "r8d", "r9d" };
+static char *param_16_regs[NR_FUNC_PARAM_REGS] = { "di", "si", "dx", "cx",
+    "r8w", "r9w" };
+static char *param_8_regs[NR_FUNC_PARAM_REGS] = { "dil", "sil", "dl", "cl",
+    "r8b", "r9b" };
 
 #define	RAX 1
+
+static char *
+func_param_reg(int r, int size)
+{
+	if (size == 1)
+		return (param_8_regs[r]);
+	else if (size == 2)
+		return (param_16_regs[r]);
+	else if (size == 4)
+		return (param_32_regs[r]);
+	else
+		return (param_regs[r]);
+}
 
 static int
 next_x86_reg(void)
@@ -105,7 +124,7 @@ static void
 emit_x86_op(struct ir *ir)
 {
 	struct param *p;
-	int i;
+	int i, off;
 
 	emit_no_nl("# ");
 	dump_ir_op(out, ir);
@@ -219,8 +238,9 @@ emit_x86_op(struct ir *ir)
 		while (p) {
 			/* XXX more than 6 params */
 			if (i < NR_FUNC_PARAM_REGS)
-				emit("movq %%%s, %%%s", x86_reg(p->val, 8),
-				    func_param_regs[i++]);
+				emit("mov %%%s, %%%s", x86_reg(p->val,
+				    p->sym->stacksize), func_param_reg(i++,
+				    p->sym->stacksize));
 			p = p->next;
 		}
 		emit("callq %s", ((struct symbol *)ir->o1)->name);
@@ -235,12 +255,13 @@ emit_x86_op(struct ir *ir)
 		emit("movq %%rsp, %%rbp");
 		emit("subq $%d, %%rsp", ir->o1);
 		p = (struct param *)ir->o2;
-		i = 0;
+		off = i = 0;
 		while (p) {
 			if (i < NR_FUNC_PARAM_REGS)
-				emit("movq %%%s, %d(%%rsp)",
-				    func_param_regs[i], i * 8);
+				emit("mov %%%s, %d(%%rsp)",
+				    func_param_reg(i, p->sym->stacksize), off);
 			i++;
+			off += p->sym->stacksize;
 			p = p->next;
 		}
 		break;
