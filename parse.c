@@ -247,6 +247,8 @@ additive_expr(void)
 		t = tok->tok;
 		next();
 		r = multiplicative_expr();
+		if (l->type->ptr && r->type->ptr)
+			errx(1, "Can't add two pointers at line %d", tok->line);
 		l = new_node(t == '+' ? N_ADD : N_SUB, l, r, 0, l->type);
 	}
 	return (l);

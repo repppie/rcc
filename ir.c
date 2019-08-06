@@ -158,17 +158,37 @@ gen_ir_op(struct node *n)
 	switch (n->op) {
 	case N_ADD:
 	case N_SUB:
-	case N_MUL:
-	case N_DIV:
 		if (n->op == N_ADD)
 			op = IR_ADD;
 		else if (n->op == N_SUB)
 			op = IR_SUB;
-		else if (n->op == N_MUL)
+
+		if (n->r->type->ptr) {
+			struct node *_t;
+
+			_t = n->l;
+			n->l = n->r;
+			n->r = _t;
+		}
+		l = gen_ir_op(n->l);
+		r = gen_ir_op(n->r);
+		if (n->l->type->ptr) {
+			tmp = alloc_reg();
+			new_ir(IR_LOADI, n->l->type->ptr->size, 0, tmp);
+			new_ir(IR_MUL, tmp, r, r);
+			new_ir(IR_KILL, tmp, 0, 0);
+		}
+		dst = alloc_reg();
+		new_ir(op, l, r, dst);
+		new_ir(IR_KILL, l, 0, 0);
+		new_ir(IR_KILL, r, 0, 0);
+		return (dst);
+	case N_MUL:
+	case N_DIV:
+		if (n->op == N_MUL)
 			op = IR_MUL;
 		else if (n->op == N_DIV)
 			op = IR_DIV;
-
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
