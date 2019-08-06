@@ -186,8 +186,7 @@ gen_ir_op(struct node *n)
 	case N_DEREF:
 		l = gen_ir_op(n->l);
 		dst = alloc_reg();
-		assert(n->l->op == N_SYM);
-		ir_load(l, dst, n->l->sym->typesize);
+		ir_load(l, dst, n->type->size);
 		new_ir(IR_KILL, l, 0, 0);
 		return (dst);
 	case N_CONSTANT:
@@ -198,22 +197,21 @@ gen_ir_op(struct node *n)
 		dst = alloc_reg();
 		tmp = alloc_reg();
 		new_ir(IR_LOADI, n->sym->val, 0, tmp);
-		ir_loado(RARP, tmp, dst, n->sym->stacksize);
+		ir_loado(RARP, tmp, dst, n->type->size);
 		new_ir(IR_KILL, tmp, 0, 0);
 		return (dst);
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
 		if (n->l->op == N_DEREF) {
-			assert(n->l->l->op == N_SYM);
 			l = gen_ir_op(n->l->l);
-			ir_store(r, l, n->l->l->sym->typesize);
+			ir_store(r, l, n->l->type->size);
 			new_ir(IR_KILL, r, 0, 0);
 			return (l);
 		}
 		sym = n->l->sym;
 		tmp = alloc_reg();
 		new_ir(IR_LOADI, sym->val, 0, tmp);
-		ir_storeo(r, RARP, tmp, sym->stacksize);
+		ir_storeo(r, RARP, tmp, n->type->size);
 		new_ir(IR_KILL, tmp, 0, 0);
 		new_ir(IR_KILL, r, 0, 0);
 		return (sym->val);

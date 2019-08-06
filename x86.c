@@ -236,11 +236,13 @@ emit_x86_op(struct ir *ir)
 		p = (struct param *)ir->o2;
 		i = 0;
 		while (p) {
+			int size;
+
+			size = p->n->type->size;
 			/* XXX more than 6 params */
 			if (i < NR_FUNC_PARAM_REGS)
-				emit("mov %%%s, %%%s", x86_reg(p->val,
-				    p->sym->stacksize), func_param_reg(i++,
-				    p->sym->stacksize));
+				emit("mov %%%s, %%%s", x86_reg(p->val, size),
+				    func_param_reg(i++, size));
 			p = p->next;
 		}
 		emit("callq %s", ((struct symbol *)ir->o1)->name);
@@ -259,9 +261,9 @@ emit_x86_op(struct ir *ir)
 		while (p) {
 			if (i < NR_FUNC_PARAM_REGS)
 				emit("mov %%%s, %d(%%rsp)",
-				    func_param_reg(i, p->sym->stacksize), off);
+				    func_param_reg(i, p->sym->type->size), off);
 			i++;
-			off += p->sym->stacksize;
+			off += p->sym->type->size;
 			p = p->next;
 		}
 		break;

@@ -9,7 +9,7 @@ add_special_funcs(void)
 {
 	struct symbol *s;
 
-	s = add_sym("print", 0, 0);
+	s = add_sym("print", NULL);
 	s->func = 1;
 }
 

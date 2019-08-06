@@ -10,7 +10,8 @@ static struct node *stmt(void);
 static struct node *stmts(void);
 
 static struct node *
-new_node(enum node_op op, struct node *l, struct node *r, void *v)
+new_node(enum node_op op, struct node *l, struct node *r, void *v,
+    struct type *_type)
 {
 	struct node *n;
 
@@ -20,6 +21,7 @@ new_node(enum node_op op, struct node *l, struct node *r, void *v)
 	n->l = l;
 	n->r = r;
 	n->str = v;
+	n->type = _type;
 
 	return (n);
 }
@@ -50,7 +52,18 @@ maybe_match(enum tokens t)
 	}
 	return (0);
 }
-		
+
+static struct type *
+new_type(int size)
+{
+	struct type *t;
+
+	t = malloc(sizeof(struct type));
+	memset(t, 0, sizeof(struct type));
+	t->size = size;
+
+	return (t);
+}
 
 static int
 is_type(struct token *tok) {
@@ -81,35 +94,35 @@ typesize(struct token *tok) {
 	}
 }
 
-static int
-type(int *stacksize) {
-	struct token *t;
-	int ptr;
+static struct type *
+type(void) {
+	struct type *type, *ptr;
 
-	t = tok;
+	type = new_type(typesize(tok));
 	if (is_type(tok))
 		next();
 	else
 		errx(1, "Syntax error at line %d: Expected type got %d\n",
 		    tok->line, tok->tok);
-	ptr = 0;
-	while (maybe_match('*'))
-		ptr = 1;
+	while (maybe_match('*')) {
+		ptr = new_type(8);
+		ptr->ptr = type;
+		type = ptr;
+	}
 
-	if (stacksize)
-		*stacksize = ptr ? 8 : typesize(t);
-
-	return (typesize(t));
+	return (type);
 }
 
 static struct node *
 constant(void)
 {
+	struct type *_type;
 	long v;
 
 	v = tok->val;
 	match(TOK_CONSTANT);
-	return (new_node(N_CONSTANT, NULL, NULL, (void *)v));
+	_type = new_type(4);
+	return (new_node(N_CONSTANT, NULL, NULL, (void *)v, _type));
 }
 
 static struct node *
@@ -121,7 +134,7 @@ symbol(void)
 		errx(1, "'%s' undeclared at line %d", tok->str,
 		    tok->line);
 	match(TOK_ID);
-	return (new_node(N_SYM, NULL, NULL, s));
+	return (new_node(N_SYM, NULL, NULL, s, s->type));
 }
 
 static struct node *
@@ -175,7 +188,7 @@ postfix_expr(void)
 	n = primary_expr();
 	while (tok->tok == '(') {
 		if (maybe_match('(')) {
-			n = new_node(N_CALL, n, NULL, NULL);
+			n = new_node(N_CALL, n, NULL, NULL, n->type);
 			n->params = argument_expr_list();
 			return (n);
 		}
@@ -187,18 +200,23 @@ static struct node *
 unary_expr(void)
 {
 	struct node *n;
+	struct type *_type;
 
 	if (tok->tok == '*') {
 		next();
 		n = unary_expr();
-		return (new_node(N_DEREF, n, NULL, 0));
+		if (!n->type->ptr)
+			errx(1, "Deferencing something that is not a pointer "
+			    "at line %d\n", tok->line);
+		return (new_node(N_DEREF, n, NULL, 0, n->type->ptr));
 	} else if (tok->tok == '&') {
 		next();
 		n = symbol();
-		return (new_node(N_ADDR, n, NULL, 0));
+		_type = new_type(8);
+		_type->ptr = n->type;
+		return (new_node(N_ADDR, n, NULL, 0, _type));
 	}
 	return (postfix_expr());
-
 }
 
 static struct node *
@@ -212,7 +230,7 @@ multiplicative_expr(void)
 		t = tok->tok;
 		next();
 		r = unary_expr();
-		l = new_node(t == '*' ? N_MUL : N_DIV, l, r, 0);
+		l = new_node(t == '*' ? N_MUL : N_DIV, l, r, 0, l->type);
 	}
 
 	return (l);
@@ -229,7 +247,7 @@ additive_expr(void)
 		t = tok->tok;
 		next();
 		r = multiplicative_expr();
-		l = new_node(t == '+' ? N_ADD : N_SUB, l, r, 0);
+		l = new_node(t == '+' ? N_ADD : N_SUB, l, r, 0, l->type);
 	}
 	return (l);
 }
@@ -245,7 +263,7 @@ equality_expr(void)
 		t = tok->tok;
 		next();
 		r = additive_expr();
-		l = new_node(t == TOK_EQ ? N_EQ : N_NE, l, r, 0);
+		l = new_node(t == TOK_EQ ? N_EQ : N_NE, l, r, 0, l->type);
 	}
 	return (l);
 }
@@ -258,7 +276,7 @@ assign_expr(void)
 	l = equality_expr();
 	if (maybe_match('=')) {
 		r = expr();
-		n = new_node(N_ASSIGN, l, r, 0);
+		n = new_node(N_ASSIGN, l, r, 0, l->type);
 		return (n);
 	} else
 		return (l);
@@ -276,18 +294,18 @@ decl(void)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
-	int _type, stacksize, __stacksize;
+	struct type *_type, *__type, *ptr;
 
-	_type = type(&stacksize);
-	__stacksize = stacksize;
+	__type = _type = type();
 
 	last = head = NULL;
 	while (1) {
 		n = NULL;
-		stacksize = __stacksize;
-		if (tok->tok == '*') {
-			stacksize = 8;
-			next();
+		_type = __type;
+		while (maybe_match('*')) {
+			ptr = new_type(8);
+			ptr->ptr = _type;
+			_type = ptr;
 		}
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d: Expected identifier,"
@@ -295,14 +313,14 @@ decl(void)
 		if (find_sym(tok->str) != NULL)
 			errx(1, "Redeclaring '%s' at line %d\n", tok->str,
 			    tok->line);
-		s = add_sym(tok->str, _type, stacksize);
+		s = add_sym(tok->str, _type);
 	
 		next();
 		if (tok->tok == '=') {
 			next();
-			l = new_node(N_SYM, NULL, NULL, s);
+			l = new_node(N_SYM, NULL, NULL, s, _type);
 			r = expr();
-			n = new_node(N_ASSIGN, l, r, 0);
+			n = new_node(N_ASSIGN, l, r, 0, _type);
 			if (!head)
 				head = n;
 			if (last)
@@ -319,7 +337,7 @@ decl(void)
 
 	n = head;
 	if (head && head->next)
-		n = new_node(N_MULTIPLE, head, NULL, 0);
+		n = new_node(N_MULTIPLE, head, NULL, 0, NULL);
 
 	return (n);
 }
@@ -336,7 +354,7 @@ ret(void)
 	n = expr();
 	match(';');
 out:
-	return (new_node(N_RETURN, n, NULL, 0));
+	return (new_node(N_RETURN, n, NULL, 0, n->type));
 }
 
 static struct node *
@@ -354,7 +372,7 @@ _if(void)
 		match(TOK_ELSE);
 		r = stmts();
 	}
-	n = new_node(N_IF, l, r, 0);
+	n = new_node(N_IF, l, r, 0, NULL);
 	n->cond = cond;
 	return (n);
 }
@@ -369,7 +387,7 @@ _while(void)
 	cond = expr();
 	match(')');
 	l = stmts();
-	n = new_node(N_WHILE, l, 0, 0);
+	n = new_node(N_WHILE, l, 0, 0, NULL);
 	n->cond = cond;
 	return (n);
 }
@@ -419,7 +437,7 @@ compound_stmt(void)
 			break;
 	}
 	if (head->next)
-		head = new_node(N_MULTIPLE, head, NULL, 0);
+		head = new_node(N_MULTIPLE, head, NULL, 0, NULL);
 	return (head);
 }
 
@@ -436,10 +454,10 @@ void
 func(void) {
 	struct symbol *s;
 	struct param *p, *head_p, *last_p;
+	struct type *_type;
 	struct node *n;
-	int _type, stacksize;
 
-	_type = type(NULL);
+	_type = type();
 
 	if (tok->tok != TOK_ID)
 		errx(1, "Syntax error at line %d, Expected symbol, got %d",
@@ -447,7 +465,7 @@ func(void) {
 	if ((find_sym(tok->str)) != NULL)
 		errx(1, "'%s' redeclared at line %d", tok->str,
 		    tok->line);
-	s = add_sym(tok->str, _type, 0);
+	s = add_sym(tok->str, _type);
 	s->func = 1;
 	next();
 
@@ -464,14 +482,14 @@ func(void) {
 			last_p->next = p;
 		last_p = p;
 
-		_type = type(&stacksize);
+		_type = type();
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d, Expected symbol, got"
 			    " %d", tok->line, tok->tok);
 		if ((find_sym(tok->str)) != NULL)
 			errx(1, "'%s' redeclared at line %d", tok->str,
 			    tok->line);
-		p->sym = add_sym(tok->str, _type, stacksize);
+		p->sym = add_sym(tok->str, _type);
 		next();
 		if (!maybe_match(',')) {
 			match(')');

@@ -92,6 +92,7 @@ struct node {
 		struct symbol *sym;
 	};
 	int op;
+	struct type *type;
 };
 
 enum node_op {
@@ -161,8 +162,7 @@ struct symbol {
 	int val;
 	int assigned;
 	int func;
-	int typesize;
-	int stacksize;
+	struct type *type;
 	struct node *body;
 	struct ir *ir;
 	struct param *params;
@@ -185,6 +185,11 @@ struct param {
 	int val;
 };
 
+struct type {
+	int size;
+	struct type *ptr;
+};
+
 void lex(FILE *f);
 
 void parse(void);
@@ -195,7 +200,7 @@ void gen_ir(void);
 
 void emit_x86(void);
 
-struct symbol *add_sym(char *name, int size, int stacksize);
+struct symbol *add_sym(char *name, struct type *type);
 struct symbol *find_sym(char *name);
 struct symbol *find_global_sym(char *name);
 void new_symtab(void);
