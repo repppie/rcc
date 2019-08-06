@@ -61,6 +61,7 @@ new_type(int size)
 	t = malloc(sizeof(struct type));
 	memset(t, 0, sizeof(struct type));
 	t->size = size;
+	t->stacksize = size;
 
 	return (t);
 }
@@ -183,16 +184,24 @@ argument_expr_list(void)
 static struct node *
 postfix_expr(void)
 {
-	struct node *n;
+	struct node *l, *n, *r;
+	int array;
 
-	n = primary_expr();
-	while (tok->tok == '(') {
+	n = l = primary_expr();
+	array = 0;
+	while (tok->tok == '(' || tok->tok == '[') {
 		if (maybe_match('(')) {
 			n = new_node(N_CALL, n, NULL, NULL, n->type);
 			n->params = argument_expr_list();
-			return (n);
+		} else if (maybe_match('[')) {
+			r = expr();
+			n = new_node(N_ADD, n, r, NULL, l->type->ptr);
+			array = 1;
+			match(']');
 		}
 	}
+	if (array)
+		n = new_node(N_DEREF, n, 0, NULL, n->type);
 	return (n);
 }
 
@@ -202,16 +211,14 @@ unary_expr(void)
 	struct node *n;
 	struct type *_type;
 
-	if (tok->tok == '*') {
-		next();
+	if (maybe_match('*')) {
 		n = unary_expr();
 		if (!n->type->ptr)
 			errx(1, "Deferencing something that is not a pointer "
 			    "at line %d\n", tok->line);
 		return (new_node(N_DEREF, n, NULL, 0, n->type->ptr));
-	} else if (tok->tok == '&') {
-		next();
-		n = symbol();
+	} else if (maybe_match('&')) {
+		n = unary_expr();
 		_type = new_type(8);
 		_type->ptr = n->type;
 		return (new_node(N_ADDR, n, NULL, 0, _type));
@@ -291,12 +298,41 @@ expr(void)
 	return (assign_expr());
 }
 
+static struct type *
+array(struct type *t)
+{
+	struct node *n, *last;
+	struct type *_type;
+
+	n = last = NULL;
+	_type = t;
+	while (maybe_match('[')) {
+		n = primary_expr();
+		if (n->op != N_CONSTANT)
+			errx(1, "Array size needs to be constant at line %d",
+			    tok->line);
+		n->next = last;
+		last = n;
+		match(']');
+	}
+	while (n) {
+		_type = new_type(n->val);
+		_type->stacksize =  n->val * t->stacksize;
+		_type->ptr = t;
+		_type->array = 1;
+		t = _type;
+		n = n->next;
+	}
+	return (t);
+}
+
 static struct node *
 decl(void)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
 	struct type *_type, *__type, *ptr;
+	char *name;
 
 	__type = _type = type();
 
@@ -312,12 +348,17 @@ decl(void)
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d: Expected identifier,"
 			    " got %d\n", tok->line, tok->tok);
-		if (find_sym(tok->str) != NULL)
+		name = tok->str;
+		next();
+
+		if (tok->tok == '[')
+			_type = array(_type);
+
+		if (find_sym(name) != NULL)
 			errx(1, "Redeclaring '%s' at line %d\n", tok->str,
 			    tok->line);
-		s = add_sym(tok->str, _type);
+		s = add_sym(name, _type);
 	
-		next();
 		if (tok->tok == '=') {
 			next();
 			l = new_node(N_SYM, NULL, NULL, s, _type);

@@ -187,6 +187,8 @@ struct param {
 
 struct type {
 	int size;
+	int stacksize;
+	int array;
 	struct type *ptr;
 };
 

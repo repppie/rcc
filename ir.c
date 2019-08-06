@@ -14,6 +14,17 @@ static int labels;
 static int gen_ir_op(struct node *n);
 
 static int
+_sizeof(struct type *t)
+{
+	if (t->array)
+		return (_sizeof(t->ptr) * t->size);
+	else if (t->ptr)
+		return (8);
+	else
+		return (t->size);
+}
+
+static int
 new_label(void)
 {
 	return labels++;
@@ -174,7 +185,7 @@ gen_ir_op(struct node *n)
 		r = gen_ir_op(n->r);
 		if (n->l->type->ptr) {
 			tmp = alloc_reg();
-			new_ir(IR_LOADI, n->l->type->ptr->size, 0, tmp);
+			new_ir(IR_LOADI, _sizeof(n->l->type->ptr), 0, tmp);
 			new_ir(IR_MUL, tmp, r, r);
 			new_ir(IR_KILL, tmp, 0, 0);
 		}
@@ -206,7 +217,7 @@ gen_ir_op(struct node *n)
 	case N_DEREF:
 		l = gen_ir_op(n->l);
 		dst = alloc_reg();
-		ir_load(l, dst, n->type->size);
+		ir_load(l, dst, _sizeof(n->type));
 		new_ir(IR_KILL, l, 0, 0);
 		return (dst);
 	case N_CONSTANT:
@@ -216,22 +227,27 @@ gen_ir_op(struct node *n)
 	case N_SYM:
 		dst = alloc_reg();
 		tmp = alloc_reg();
+		if (n->type->array) {
+			new_ir(IR_LOADI, n->sym->val, 0, tmp);
+			new_ir(IR_ADD, tmp, RARP, dst);
+			return (dst);
+		}
 		new_ir(IR_LOADI, n->sym->val, 0, tmp);
-		ir_loado(RARP, tmp, dst, n->type->size);
+		ir_loado(RARP, tmp, dst, _sizeof(n->type));
 		new_ir(IR_KILL, tmp, 0, 0);
 		return (dst);
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
 		if (n->l->op == N_DEREF) {
 			l = gen_ir_op(n->l->l);
-			ir_store(r, l, n->l->type->size);
+			ir_store(r, l, _sizeof(n->l->type));
 			new_ir(IR_KILL, r, 0, 0);
 			return (l);
 		}
 		sym = n->l->sym;
 		tmp = alloc_reg();
 		new_ir(IR_LOADI, sym->val, 0, tmp);
-		ir_storeo(r, RARP, tmp, n->type->size);
+		ir_storeo(r, RARP, tmp, _sizeof(n->type));
 		new_ir(IR_KILL, tmp, 0, 0);
 		new_ir(IR_KILL, r, 0, 0);
 		return (sym->val);

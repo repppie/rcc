@@ -170,16 +170,15 @@ emit_x86_op(struct ir *ir)
 		break;
 	case IR_ADD:
 	case IR_SUB:
+		if (ir->op == IR_SUB)
+			emit("negq %%%s", x86_reg(ir->o2, 8));
+		emit("leaq (%%%s, %%%s), %%%s", x86_reg(ir->o2, 8),
+		    x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
+		break;
 	case IR_MUL:
 		if (ir->next->op !=  IR_KILL || ir->next->o1 != ir->o1)
 			emit("pushq %%%s", x86_reg(ir->o1, 8));
-		if (ir->op == IR_ADD)
-			emit("addq %%%s, %%%s", x86_reg(ir->o2, 8),
-			    x86_reg(ir->o1, 8));
-		else if (ir->op == IR_SUB)
-			emit("subq %%%s, %%%s", x86_reg(ir->o2, 8),
-			    x86_reg(ir->o1, 8));
-		else if (ir->op == IR_MUL)
+		if (ir->op == IR_MUL)
 			emit("imulq %%%s, %%%s", x86_reg(ir->o2, 8),
 			    x86_reg(ir->o1, 8));
 		emit("movq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
@@ -217,14 +216,14 @@ emit_x86_op(struct ir *ir)
 	case IR_CBR:
 		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,
 		    8));
-		emit("jne ___l%d", ir->o2);
-		emit("je ___l%d", ir->dst);
+		emit("jne .L%d", ir->o2);
+		emit("je .L%d", ir->dst);
 		break;
 	case IR_JUMP:
-		emit("jmp ___l%d", ir->dst);
+		emit("jmp .L%d", ir->dst);
 		break;
 	case IR_LABEL:
-		emit("___l%d:", ir->o1);
+		emit(".L%d:", ir->o1);
 		break;
 	case IR_MOV:
 		emit("mov %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
@@ -286,7 +285,7 @@ emit_x86(void)
 	if ((out = fopen("out.S", "w")) < 0)
 		err(1, "fopen");
 
-	emit("fmt: .asciz \"%%ld\\n\"");
+	emit("fmt: .asciz \"%%d\\n\"");
 	emit("print:");
 	emit("movq %%rdi, %%rsi");
 	emit("leaq fmt, %%rdi");

@@ -68,7 +68,7 @@ add_sym(char *name, struct type *type)
 	s->tab = symtab;
 	s->type = type;
 	if (type)
-		symtab->ar_offset += type->size;
+		symtab->ar_offset += type->stacksize;
 
 	s->next = symtab->tab[hash];
 	symtab->tab[hash] = s;
