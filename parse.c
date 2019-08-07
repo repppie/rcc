@@ -274,16 +274,42 @@ additive_expr(void)
 }
 
 static struct node *
+relational_expr(void)
+{
+	struct node *l, *r;
+	enum tokens t;
+	int op;
+
+	l = additive_expr();
+	while (tok->tok == TOK_LT || tok->tok == TOK_LE || tok->tok == TOK_GT ||
+	    tok->tok == TOK_GE) {
+		t = tok->tok;
+		next();
+		if (t == TOK_LT)
+			op = N_LT;
+		else if (t == TOK_LE)
+			op = N_LE;
+		else if (t == TOK_GT)
+			op = N_GT;
+		else if (t == TOK_GE)
+			op = N_GE;
+		r = additive_expr();
+		l = new_node(op, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
 equality_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = additive_expr();
-	while (tok->tok == TOK_EQ || tok->tok == TOK_NE) {
+	l = relational_expr();
+	while (tok->tok == TOK_EQ || tok->tok == TOK_NE) { 
 		t = tok->tok;
 		next();
-		r = additive_expr();
+		r = relational_expr();
 		l = new_node(t == TOK_EQ ? N_EQ : N_NE, l, r, 0, l->type);
 	}
 	return (l);
@@ -479,6 +505,8 @@ compound_stmt(void)
 
 	last = head = NULL;
 	while (1) {
+		if (maybe_match('}'))
+			break;
 		n = stmt();
 		if (!head)
 			head = n;
@@ -486,9 +514,9 @@ compound_stmt(void)
 			last->next = n;
 		if (n)
 			last = n;
-		if (maybe_match('}'))
-			break;
 	}
+	if (!head)
+		return (new_node(N_NOP, NULL, NULL, 0, NULL));
 	if (head->next)
 		head = new_node(N_MULTIPLE, head, NULL, 0, NULL);
 	return (head);

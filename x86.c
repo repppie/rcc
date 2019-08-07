@@ -209,13 +209,25 @@ emit_x86_op(struct ir *ir)
 		break;
 	case IR_NE:
 	case IR_EQ:
+	case IR_LT:
+	case IR_LE:
+	case IR_GT:
+	case IR_GE:
 		emit("xorl %%%s,%%%s", x86_reg(ir->dst, 4), x86_reg(ir->dst,
 		    4));
-		emit("cmpq %%%s,%%%s", x86_reg(ir->o1, 8), x86_reg(ir->o2, 8));
+		emit("cmpq %%%s,%%%s", x86_reg(ir->o2, 8), x86_reg(ir->o1, 8));
 		if (ir->op == IR_EQ)
 			emit("sete %%%s", x86_reg(ir->dst, 1));
-		else
+		else if (ir->op == IR_NE)
 			emit("setne %%%s", x86_reg(ir->dst, 1));
+		else if (ir->op == IR_LT)
+			emit("setl %%%s", x86_reg(ir->dst, 1));
+		else if (ir->op == IR_LE)
+			emit("setle %%%s", x86_reg(ir->dst, 1));
+		else if (ir->op == IR_GT)
+			emit("setg %%%s", x86_reg(ir->dst, 1));
+		else if (ir->op == IR_GE)
+			emit("setge %%%s", x86_reg(ir->dst, 1));
 		break;
 	case IR_CBR:
 		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,

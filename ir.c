@@ -170,6 +170,8 @@ gen_ir_op(struct node *n)
 	int dst, l, op, r, tmp;
 
 	switch (n->op) {
+	case N_NOP:
+		return (-1);
 	case N_ADD:
 	case N_SUB:
 		if (n->op == N_ADD)
@@ -297,10 +299,26 @@ gen_ir_op(struct node *n)
 		return (-1);
 	case N_NE:
 	case N_EQ:
+	case N_LT:
+	case N_LE:
+	case N_GT:
+	case N_GE:
+		if (n->op == N_EQ)
+			op = IR_EQ;
+		else if (n->op == N_NE)
+			op = IR_NE;
+		else if (n->op == N_LT)
+			op = IR_LT;
+		else if (n->op == N_LE)
+			op = IR_LE;
+		else if (n->op == N_GT)
+			op = IR_GT;
+		else if (n->op == N_GE)
+			op = IR_GE;
 		dst = alloc_reg();
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
-		new_ir(n->op == N_EQ ? IR_EQ : IR_NE, l, r, dst);
+		new_ir(op, l, r, dst);
 		new_ir(IR_KILL, l, 0, 0);
 		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
@@ -354,6 +372,10 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_RET] = "RET",
     [IR_EQ] = "EQ",
     [IR_NE] = "NE",
+    [IR_LT] = "LT",
+    [IR_LE] = "LE",
+    [IR_GT] = "GT",
+    [IR_GE] = "GE",
     [IR_CBR] = "CBR",
     [IR_JUMP] = "JUMP",
     [IR_LABEL] = "LABEL",

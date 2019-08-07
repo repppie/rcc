@@ -96,6 +96,7 @@ struct node {
 };
 
 enum node_op {
+	N_NOP,
 	N_ADD,
 	N_SUB,
 	N_MUL,
@@ -108,6 +109,10 @@ enum node_op {
 	N_RETURN,
 	N_EQ,
 	N_NE,
+	N_LT,
+	N_LE,
+	N_GT,
+	N_GE,
 	N_IF,
 	N_WHILE,
 	N_DEREF,
@@ -146,6 +151,10 @@ enum ir_op {
 	IR_MOV,
 	IR_EQ,
 	IR_NE,
+	IR_LT,
+	IR_LE,
+	IR_GT,
+	IR_GE,
 	IR_CBR,
 	IR_JUMP,
 	IR_LABEL,
