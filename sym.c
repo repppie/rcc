@@ -8,6 +8,9 @@
 static struct symtab l0_symtab;
 struct symtab *symtab = &l0_symtab;
 
+struct symbol *strings;
+static int nr_strings;
+
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
 
 static unsigned int
@@ -48,6 +51,37 @@ struct symbol *
 find_global_sym(char *name)
 {
 	return (_find_sym(name, &l0_symtab));
+}
+
+struct symbol *
+add_string(char *str)
+{
+	struct symbol *s;
+	struct type *_type, *ptr;
+	char *name;
+	int len;
+
+	len = strlen(str) + 1;
+
+	asprintf(&name, ".str%d", nr_strings++);
+
+	s = malloc(sizeof(struct symbol));
+	memset(s, 0, sizeof(struct symbol));
+
+	_type = new_type(1);
+	ptr = new_type(8);
+	ptr->ptr = _type;
+	ptr->array = 1;
+
+	s->type = ptr;
+	s->name = name;
+	s->global = 1;
+	s->tab = &l0_symtab;
+	s->next = strings;
+	s->str = str;
+	strings = s;
+
+	return (s);
 }
 
 struct symbol *

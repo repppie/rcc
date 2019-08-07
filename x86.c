@@ -248,6 +248,7 @@ emit_x86_op(struct ir *ir)
 				    func_param_reg(i++, size));
 			p = p->next;
 		}
+		emit("xorl %%eax, %%eax");
 		emit("callq %s", ((struct symbol *)ir->o1)->name);
 		emit("movq %%rax, %%%s", x86_reg(ir->dst, 8));
 		for (i = MAX_IR_REGS; i >= 1; i--)
@@ -304,6 +305,11 @@ emit_x86(void)
 			emit(".size %s, %ld", symtab->tab[i]->name,
 			    symtab->tab[i]->type->stacksize);
 		}
+	}
+	while (strings) {
+		emit("%s:", strings->name);
+		emit(".asciz \"%s\"", strings->str);
+		strings = strings->next;
 	}
 
 	emit(".text");

@@ -156,6 +156,7 @@ enum ir_op {
 #define	SYMTAB_SIZE 1021
 
 extern struct symtab *symtab;
+extern struct symbol *strings;
 
 struct symbol {
 	struct symbol *next;
@@ -169,6 +170,7 @@ struct symbol {
 	struct ir *ir;
 	struct param *params;
 	struct symtab *tab;
+	char *str;
 };
 
 struct symtab {
@@ -196,6 +198,7 @@ struct type {
 
 void lex(FILE *f);
 
+struct type *new_type(int size);
 void parse(void);
 
 void dump_ir_op(FILE *f, struct ir *ir);
@@ -205,6 +208,7 @@ void gen_ir(void);
 void emit_x86(void);
 
 struct symbol *add_sym(char *name, struct type *type);
+struct symbol *add_string(char *str);
 struct symbol *find_sym(char *name);
 struct symbol *find_global_sym(char *name);
 void new_symtab(void);

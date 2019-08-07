@@ -11,6 +11,8 @@ add_special_funcs(void)
 
 	s = add_sym("print", NULL);
 	s->func = 1;
+	s = add_sym("printf", NULL);
+	s->func = 1;
 }
 
 int

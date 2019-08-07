@@ -53,7 +53,7 @@ maybe_match(enum tokens t)
 	return (0);
 }
 
-static struct type *
+struct type *
 new_type(int size)
 {
 	struct type *t;
@@ -139,6 +139,16 @@ symbol(void)
 }
 
 static struct node *
+string(void)
+{
+	struct symbol *s;
+
+	s = add_string(tok->str);
+	match(TOK_STRING);
+	return (new_node(N_SYM, NULL, NULL, s, s->type));
+}
+
+static struct node *
 primary_expr(void)
 {
 	struct node *n;
@@ -148,6 +158,8 @@ primary_expr(void)
 		return constant();
 	case TOK_ID:
 		return symbol();
+	case TOK_STRING:
+		return string();
 	case '(':
 		next();
 		n = expr();
