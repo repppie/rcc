@@ -123,18 +123,21 @@ ir_storeo(long o1, long o2, long dst, int size)
 static int
 gen_if(struct node *n)
 {
-	int cond, else_lbl, if_lbl;
+	int cond, else_lbl, if_lbl, out_lbl;
 
 	cond = gen_ir_op(n->cond);
 	if_lbl = new_label();
 	else_lbl = new_label();
+	out_lbl = new_label();
 	new_ir(IR_CBR, cond, if_lbl, else_lbl);
 	new_ir(IR_KILL, cond, 0, 0);
 	new_ir(IR_LABEL, if_lbl, 0, 0);
 	gen_ir_op(n->l);
+	new_ir(IR_JUMP, 0, 0, out_lbl);
 	new_ir(IR_LABEL, else_lbl, 0, 0);
 	if (n->r)
 		gen_ir_op(n->r);
+	new_ir(IR_LABEL, out_lbl, 0, 0);
 
 	return (-1);
 }
