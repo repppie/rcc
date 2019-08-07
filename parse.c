@@ -327,14 +327,12 @@ array(struct type *t)
 }
 
 static struct node *
-decl(void)
+_decl(struct type *__type)
 {
 	struct node *l, *last, *head, *n, *r;
 	struct symbol *s;
-	struct type *_type, *__type, *ptr;
+	struct type *_type, *ptr;
 	char *name;
-
-	__type = _type = type();
 
 	last = head = NULL;
 	while (1) {
@@ -445,9 +443,9 @@ stmt(void)
 		return NULL;
 	}
 
-	if (is_type(tok)) {
-		n = decl();
-	} else {
+	if (is_type(tok))
+		n = _decl(type());
+	else {
 		if (tok->tok == TOK_RETURN)
 			n = ret();
 		else if (tok->tok == TOK_IF)
@@ -493,28 +491,23 @@ stmts()
 		return (stmt());
 }
 
-void
-func(void) {
+static void
+func(struct type *_type)
+{
 	struct symbol *s;
 	struct param *p, *head_p, *last_p;
-	struct type *_type;
 	struct node *n;
 
-	_type = type();
-
-	if (tok->tok != TOK_ID)
-		errx(1, "Syntax error at line %d, Expected symbol, got %d",
-		    tok->line, tok->tok);
 	if ((find_sym(tok->str)) != NULL)
 		errx(1, "'%s' redeclared at line %d", tok->str,
 		    tok->line);
 	s = add_sym(tok->str, _type);
-	s->func = 1;
 	next();
-
 	new_symtab();
+	s->func = 1;
 	s->tab = symtab;
 	match('(');
+
 	head_p = last_p = NULL;
 	while (!maybe_match(')')) {
 		p = malloc(sizeof(struct param));
@@ -548,9 +541,26 @@ func(void) {
 	s->params = head_p;
 }
 
+static void
+external_decl(void)
+{
+	struct type *_type;
+
+	_type = type();
+
+	if (tok->tok != TOK_ID)
+		errx(1, "Syntax error at line %d, Expected symbol, got %d",
+		    tok->line, tok->tok);
+
+	if (tok->next->tok == '(')
+		func(_type);
+	else
+		_decl(_type);
+}
+
 void
 parse(void)
 {
 	while (tok->tok != TOK_EOF)
-		func();
+		external_decl();
 }

@@ -133,6 +133,10 @@ emit_x86_op(struct ir *ir)
 	case IR_LOADI:
 		emit("movq $%ld, %%%s", ir->o1, x86_reg(ir->dst, 8));
 		break;
+	case IR_LOADG:
+		emit("leaq %s(%%rip), %%%s", (char *)ir->o1,
+		    x86_reg(ir->dst, 8));
+		break;
 	case IR_LOAD:
 		emit("movq (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
 		    8));
@@ -293,6 +297,16 @@ emit_x86(void)
 	emit("callq printf");
 	emit("retq");
 
+	emit(".data");
+	for (i = 0; i < SYMTAB_SIZE; i++) {
+		if (symtab->tab[i] && !symtab->tab[i]->func) {
+			emit("%s:", symtab->tab[i]->name);
+			emit(".size %s, %ld", symtab->tab[i]->name,
+			    symtab->tab[i]->type->stacksize);
+		}
+	}
+
+	emit(".text");
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		if (symtab->tab[i] && symtab->tab[i]->body) {
 			emit(".globl %s", symtab->tab[i]->name);

@@ -209,10 +209,14 @@ gen_ir_op(struct node *n)
 		return (dst);
 	case N_ADDR:
 		dst = alloc_reg();
-		tmp = alloc_reg();
-		new_ir(IR_LOADI, n->l->sym->val, 0, tmp);
-		new_ir(IR_ADD, tmp, RARP, dst);
-		new_ir(IR_KILL, tmp, 0, 0);
+		if (n->l->sym->global)
+			new_ir(IR_LOADG, (long)n->l->sym->name, 0, dst);
+		else {
+			tmp = alloc_reg();
+			new_ir(IR_LOADI, n->l->sym->loc, 0, tmp);
+			new_ir(IR_ADD, tmp, RARP, dst);
+			new_ir(IR_KILL, tmp, 0, 0);
+		}
 		return (dst);
 	case N_DEREF:
 		l = gen_ir_op(n->l);
@@ -226,15 +230,26 @@ gen_ir_op(struct node *n)
 		return (dst);
 	case N_SYM:
 		dst = alloc_reg();
-		tmp = alloc_reg();
 		if (n->type->array) {
-			new_ir(IR_LOADI, n->sym->val, 0, tmp);
-			new_ir(IR_ADD, tmp, RARP, dst);
+			if (n->sym->global)
+				new_ir(IR_LOADG, (long)n->sym->name, 0, dst);
+			else {
+				tmp = alloc_reg();
+				new_ir(IR_LOADI, n->sym->loc, 0, tmp);
+				new_ir(IR_ADD, tmp, RARP, dst);
+				new_ir(IR_KILL, tmp, 0, 0);
+			}
 			return (dst);
 		}
-		new_ir(IR_LOADI, n->sym->val, 0, tmp);
-		ir_loado(RARP, tmp, dst, _sizeof(n->type));
-		new_ir(IR_KILL, tmp, 0, 0);
+		tmp = alloc_reg();
+		if (n->sym->global) {
+			new_ir(IR_LOADG, (long)n->sym->name, 0, tmp);
+			ir_load(tmp, dst, _sizeof(n->type));
+		} else {
+			new_ir(IR_LOADI, n->sym->loc, 0, tmp);
+			ir_loado(RARP, tmp, dst, _sizeof(n->type));
+			new_ir(IR_KILL, tmp, 0, 0);
+		}
 		return (dst);
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
@@ -246,14 +261,21 @@ gen_ir_op(struct node *n)
 		}
 		sym = n->l->sym;
 		tmp = alloc_reg();
-		new_ir(IR_LOADI, sym->val, 0, tmp);
-		ir_storeo(r, RARP, tmp, _sizeof(n->type));
+		if (sym->global) {
+			new_ir(IR_LOADG, (long)sym->name, 0, tmp);
+			ir_store(r, tmp, _sizeof(n->type));
+		} else {
+			new_ir(IR_LOADI, sym->loc, 0, tmp);
+			ir_storeo(r, RARP, tmp, _sizeof(n->type));
+		}
 		new_ir(IR_KILL, tmp, 0, 0);
-		new_ir(IR_KILL, r, 0, 0);
-		return (sym->val);
+		return (r);
 	case N_MULTIPLE:
-		for (n = n->l; n; n = n->next)
-			gen_ir_op(n);
+		for (n = n->l; n; n = n->next) {
+			l = gen_ir_op(n);
+			if (l != -1)
+				new_ir(IR_KILL, l, 0, 0);
+		}
 		return (-1);
 	case N_CALL:
 		dst = alloc_reg();
@@ -313,6 +335,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_MUL] = "MUL",
     [IR_DIV] = "DIV",
     [IR_LOADI] = "LOADI",
+    [IR_LOADG] = "LOADG",
     [IR_LOAD] = "LOAD",
     [IR_LOAD32] = "LOAD32",
     [IR_LOADO] = "LOADO",

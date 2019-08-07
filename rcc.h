@@ -131,6 +131,7 @@ enum ir_op {
 	IR_MUL,
 	IR_DIV,
 	IR_LOADI,
+	IR_LOADG,
 	IR_LOAD,
 	IR_LOAD32,
 	IR_LOADO,
@@ -159,9 +160,10 @@ extern struct symtab *symtab;
 struct symbol {
 	struct symbol *next;
 	char *name;
-	int val;
+	int loc;
 	int assigned;
 	int func;
+	int global;
 	struct type *type;
 	struct node *body;
 	struct ir *ir;
