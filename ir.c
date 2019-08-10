@@ -70,6 +70,9 @@ ir_load(long o1, long dst, int size)
 	case 4:
 		new_ir(IR_LOAD32, o1, 0, dst);
 		break;
+	case 1:
+		new_ir(IR_LOAD8, o1, 0, dst);
+		break;
 	default:
 		errx(1, "Invalid load size %d", size);
 	}
@@ -84,6 +87,9 @@ ir_loado(long o1, long o2, long dst, int size)
 		break;
 	case 4:
 		new_ir(IR_LOADO32, o1, o2, dst);
+		break;
+	case 1:
+		new_ir(IR_LOADO8, o1, o2, dst);
 		break;
 	default:
 		errx(1, "Invalid load size %d", size);
@@ -100,6 +106,9 @@ ir_store(long o1, long dst, int size)
 	case 4:
 		new_ir(IR_STORE32, o1, 0, dst);
 		break;
+	case 1:
+		new_ir(IR_STORE8, o1, 0, dst);
+		break;
 	default:
 		errx(1, "Invalid store size %d", size);
 	}
@@ -114,6 +123,9 @@ ir_storeo(long o1, long o2, long dst, int size)
 		break;
 	case 4:
 		new_ir(IR_STOREO32, o1, o2, dst);
+		break;
+	case 1:
+		new_ir(IR_STOREO8, o1, o2, dst);
 		break;
 	default:
 		errx(1, "Invalid store size %d", size);
@@ -343,6 +355,7 @@ gen_ir(void)
 		if (s && s->body) {
 			head_ir = NULL;
 			last_ir = NULL;
+			cur_reg = 1;
 			new_ir(IR_ENTER, s->tab->ar_offset, (long)s->params, 0);
 			gen_ir_op(s->body);
 			s->ir = head_ir;
@@ -359,12 +372,16 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_LOADG] = "LOADG",
     [IR_LOAD] = "LOAD",
     [IR_LOAD32] = "LOAD32",
+    [IR_LOAD8] = "LOAD8",
     [IR_LOADO] = "LOADO",
     [IR_LOADO32] = "LOADO32",
+    [IR_LOADO8] = "LOADO8",
     [IR_STORE] = "STORE",
     [IR_STORE32] = "STORE32",
+    [IR_STORE8] = "STORE8",
     [IR_STOREO] = "STOREO",
     [IR_STOREO32] = "STOREO32",
+    [IR_STOREO8] = "STOREO8",
     [IR_KILL] = "KILL",
     [IR_RET] = "RET",
     [IR_MOV] = "MOV",

@@ -46,6 +46,7 @@ char \'\\?[^\n']+\'
 "auto" { new_token(TOK_AUTO); };
 "break" { new_token(TOK_BREAK); };
 "case" { new_token(TOK_CASE); };
+"char" { new_token(TOK_CHAR); };
 "const" { new_token(TOK_CONST); };
 "continue" { new_token(TOK_CONTINUE); };
 "default" { new_token(TOK_DEFAULT); };

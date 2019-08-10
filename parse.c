@@ -85,10 +85,11 @@ typesize(struct token *tok) {
 	switch (tok->tok) {
 	case TOK_LONG:
 		return (8);
-	case TOK_CHAR:
 	case TOK_SHORT:
 	case TOK_INT:
 		return (4);
+	case TOK_CHAR:
+		return (1);
 	case TOK_VOID:
 	default:
 		return (0);

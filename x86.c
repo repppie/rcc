@@ -145,6 +145,10 @@ emit_x86_op(struct ir *ir)
 		emit("movl (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
 		    4));
 		break;
+	case IR_LOAD8:
+		emit("movb (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		    1));
+		break;
 	case IR_LOADO:
 		emit("movq 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
@@ -152,6 +156,10 @@ emit_x86_op(struct ir *ir)
 	case IR_LOADO32:
 		emit("movl 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 4));
+		break;
+	case IR_LOADO8:
+		emit("movb 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
+		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 1));
 		break;
 	case IR_STORE:
 		emit("movq %%%s, (%%%s)", x86_reg(ir->o1, 8), x86_reg(ir->dst,
@@ -161,12 +169,20 @@ emit_x86_op(struct ir *ir)
 		emit("movl %%%s, (%%%s)", x86_reg(ir->o1, 4), x86_reg(ir->dst,
 		    8));
 		break;
+	case IR_STORE8:
+		emit("movb %%%s, (%%%s)", x86_reg(ir->o1, 1), x86_reg(ir->dst,
+		    8));
+		break;
 	case IR_STOREO:
 		emit("movq %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 8),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
 		break;
 	case IR_STOREO32:
 		emit("movl %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 4),
+		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
+		break;
+	case IR_STOREO8:
+		emit("movb %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 1),
 		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
 		break;
 	case IR_KILL:
@@ -301,14 +317,6 @@ emit_x86(void)
 
 	if ((out = fopen("out.S", "w")) < 0)
 		err(1, "fopen");
-
-	emit("fmt: .asciz \"%%d\\n\"");
-	emit("print:");
-	emit("movq %%rdi, %%rsi");
-	emit("leaq fmt, %%rdi");
-	emit("xorl %%eax, %%eax");
-	emit("callq printf");
-	emit("retq");
 
 	emit(".data");
 	for (i = 0; i < SYMTAB_SIZE; i++) {
