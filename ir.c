@@ -275,6 +275,12 @@ gen_ir_op(struct node *n)
 		new_ir(IR_KILL, l, 0, 0);
 		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
+	case N_NOT:
+		dst = alloc_reg();
+		l = gen_ir_op(n->l);
+		new_ir(IR_NOT, l, 0, dst);
+		new_ir(IR_KILL, l, 0, 0);
+		return (dst);
 	case N_ADDR:
 		dst = alloc_reg();
 		if (n->l->sym->global)

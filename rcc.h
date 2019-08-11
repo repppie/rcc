@@ -122,6 +122,7 @@ enum node_op {
 	N_DO,
 	N_DEREF,
 	N_ADDR,
+	N_NOT,
 };
 
 extern struct ir *head_ir;
@@ -140,6 +141,7 @@ enum ir_op {
 	IR_SUB,
 	IR_MUL,
 	IR_DIV,
+	IR_NOT,
 	IR_LOADI,
 	IR_LOADG,
 	IR_LOAD,

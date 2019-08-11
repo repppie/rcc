@@ -211,6 +211,13 @@ emit_x86_op(struct ir *ir)
 		if (ir_regs[ir->dst] != RAX)
 			emit("popq %%rax");
 		break;
+	case IR_NOT:
+		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,
+		    8));
+		emit("seteb %%%s", x86_reg(ir->dst, 1));
+		emit("movzbq %%%s, %%%s", x86_reg(ir->dst, 1), x86_reg(ir->dst,
+		    8));
+		break;
 	case IR_NE:
 	case IR_EQ:
 	case IR_LT:

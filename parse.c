@@ -328,7 +328,7 @@ postfix_expr(void)
 static struct node *
 unary_expr(void)
 {
-	struct node *n;
+	struct node *n, *r;
 	struct type *_type;
 
 	if (maybe_match('*')) {
@@ -342,6 +342,14 @@ unary_expr(void)
 		_type = new_type(8);
 		_type->ptr = n->type;
 		return (new_node(N_ADDR, n, NULL, 0, _type));
+	} else if (maybe_match('!')) {
+		n = unary_expr();
+		return (new_node(N_NOT, n, NULL, 0, n->type));
+	} else if (maybe_match('-')) {
+		r = unary_expr();
+		_type = new_type(4);
+		n = new_node(N_CONSTANT, NULL, NULL, (void *)0, _type);
+		return (new_node(N_SUB, n, r, NULL, r->type));
 	}
 	return (postfix_expr());
 }
