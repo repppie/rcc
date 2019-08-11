@@ -566,6 +566,43 @@ _if(void)
 }
 
 static struct node *
+_do(void)
+{
+	struct node *cond, *l, *n;
+
+	match(TOK_DO);
+	l = stmts();
+	match(TOK_WHILE);
+	match('(');
+	cond = expr();
+	match(')');
+	n = new_node(N_DO, l, 0, 0, NULL);
+	n->cond = cond;
+	return (n);
+}
+
+static struct node *
+_for(void)
+{
+	struct node *cond, *l, *n, *post, *pre;
+
+	match(TOK_FOR);
+	match('(');
+	pre = expr();
+	match(';');
+	cond = expr();
+	match(';');
+	post = expr();
+	match(')');
+	l = stmts();
+	n = new_node(N_FOR, l, 0, 0, NULL);
+	n->cond = cond;
+	n->pre = pre;
+	n->post = post;
+	return (n);
+}
+
+static struct node *
 _while(void)
 {
 	struct node *cond, *l, *n;
@@ -595,6 +632,10 @@ stmt(void)
 	else {
 		if (tok->tok == TOK_RETURN)
 			n = ret();
+		else if (tok->tok == TOK_DO)
+			n = _do();
+		else if (tok->tok == TOK_FOR)
+			n = _for();
 		else if (tok->tok == TOK_IF)
 			n = _if();
 		else if (tok->tok == TOK_WHILE)

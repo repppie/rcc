@@ -137,6 +137,44 @@ gen_if(struct node *n)
 }
 
 static int
+gen_for(struct node *n)
+{
+	int cond, start, in, out;
+
+	start = new_label();
+	in = new_label();
+	out = new_label();
+	gen_ir_op(n->pre);
+	new_ir(IR_LABEL, start, 0, 0);
+	cond = gen_ir_op(n->cond);
+	new_ir(IR_CBR, cond, in, out);
+	new_ir(IR_KILL, cond, 0, 0);
+	new_ir(IR_LABEL, in, 0, 0);
+	gen_ir_op(n->l);
+	gen_ir_op(n->post);
+	new_ir(IR_JUMP, 0, 0, start);
+	new_ir(IR_LABEL, out, 0, 0);
+
+	return (-1);
+}
+
+static int
+gen_do(struct node *n)
+{
+	int cond, start, out;
+
+	start = new_label();
+	out = new_label();
+	new_ir(IR_LABEL, start, 0, 0);
+	gen_ir_op(n->l);
+	cond = gen_ir_op(n->cond);
+	new_ir(IR_CBR, cond, start, out);
+	new_ir(IR_KILL, cond, 0, 0);
+	new_ir(IR_LABEL, out, 0, 0);
+	return (-1);
+}
+
+static int
 gen_while(struct node *n)
 {
 	int cond, start, in, out;
@@ -347,6 +385,10 @@ gen_ir_op(struct node *n)
 		return (dst);
 	case N_IF:
 		return (gen_if(n));
+	case N_DO:
+		return (gen_do(n));
+	case N_FOR:
+		return (gen_for(n));
 	case N_WHILE:
 		return (gen_while(n));
 	default:

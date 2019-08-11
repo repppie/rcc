@@ -86,6 +86,8 @@ struct node {
 		struct node *cond;
 		struct param *params;
 	};
+	struct node *pre;
+	struct node *post;
 	union {
 		long val;
 		char *str;
@@ -116,6 +118,8 @@ enum node_op {
 	N_IF,
 	N_FIELD,
 	N_WHILE,
+	N_FOR,
+	N_DO,
 	N_DEREF,
 	N_ADDR,
 };
