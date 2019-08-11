@@ -173,18 +173,6 @@ emit_x86_op(struct ir *ir)
 		emit("movb %%%s, (%%%s)", x86_reg(ir->o1, 1), x86_reg(ir->dst,
 		    8));
 		break;
-	case IR_STOREO:
-		emit("movq %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 8),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
-		break;
-	case IR_STOREO32:
-		emit("movl %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 4),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
-		break;
-	case IR_STOREO8:
-		emit("movb %%%s, 0(%%%s,%%%s,1)", x86_reg(ir->o1, 1),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
-		break;
 	case IR_KILL:
 		kill_reg(ir->o1);
 		break;
@@ -322,8 +310,7 @@ emit_x86(void)
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		if (symtab->tab[i] && !symtab->tab[i]->func) {
 			emit("%s:", symtab->tab[i]->name);
-			emit(".size %s, %ld", symtab->tab[i]->name,
-			    symtab->tab[i]->type->stacksize);
+			emit(".skip %ld", symtab->tab[i]->type->stacksize);
 		}
 	}
 	while (strings) {

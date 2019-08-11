@@ -5,6 +5,7 @@
 
 #include "rcc.h"
 
+static struct type *type(void);
 static struct node *expr(void);
 static struct node *stmt(void);
 static struct node *stmts(void);
@@ -74,6 +75,7 @@ is_type(struct token *tok) {
 	case TOK_INT:
 	case TOK_LONG:
 	case TOK_VOID:
+	case TOK_STRUCT:
 		return (1);
 	default:
 		return (0);
@@ -96,23 +98,102 @@ typesize(struct token *tok) {
 	}
 }
 
-static struct type *
-type(void) {
-	struct type *type, *ptr;
+static struct struct_field *
+find_field(struct struct_field *head, char *name)
+{
+	struct struct_field *f;
 
-	type = new_type(typesize(tok));
-	if (is_type(tok))
+	for (f = head; f; f = f->next)
+		if (!strcmp(f->name, name))
+			return (f);
+	return (NULL);
+}
+
+static struct struct_field *
+struct_field(int *off)
+{
+	struct struct_field *f, *head, *last;
+
+	head = last = NULL;
+	while (!maybe_match('}')) {
+		f = malloc(sizeof(struct struct_field));
+		memset(f, 0, sizeof(struct struct_field));
+
+		f->type = type();
+		if (tok->tok != TOK_ID)
+			errx(1, "Syntax error: Expected id, got %d"
+			    " at line %d\n", tok->tok, tok->line);
+		f->name = tok->str;
+		f->off = *off;
+		*off += f->type->stacksize;
+		if (find_field(head, f->name))
+			errx(1, "Duplicate field %s at line %d\n", f->name,
+			    tok->line);
+		if (!head)
+			head = f;
+		if (last)
+			last->next = f;
+		last = f;
 		next();
-	else
-		errx(1, "Syntax error at line %d: Expected type got %d\n",
-		    tok->line, tok->tok);
-	while (maybe_match('*')) {
-		ptr = new_type(8);
-		ptr->ptr = type;
-		type = ptr;
+		match(';');
 	}
 
-	return (type);
+	return (head);
+}
+
+static struct type *
+_struct(void)
+{
+	struct _struct *_st;
+	char *name;
+	int off;
+
+	name = NULL;
+	_st = NULL;
+	match(TOK_STRUCT);
+	if (tok->tok == TOK_ID) {
+		name = tok->str;
+		next();
+		_st = find_struct(name);
+	}
+	if (maybe_match('{')) {
+		if (_st)
+			errx(1, "Redefinition of struct %s at line %d", name,
+			    tok->line);
+		_st = add_struct(name);
+		_st->name = name;
+		_st->fields = struct_field(&off);
+		_st->type = new_type(off);
+		_st->type->_struct = _st;
+	}
+	if (!_st)
+		errx(1, "Unknown struct %s at line %d", name, tok->line);
+	return (_st->type);
+}
+
+static struct type *
+type(void)
+{
+	struct type *_type, *ptr;
+
+	if (!is_type(tok))
+		errx(1, "Syntax error at line %d: Expected type got %d\n",
+		    tok->line, tok->tok);
+
+	if (tok->tok == TOK_STRUCT)
+		_type = _struct();
+	else {
+		_type = new_type(typesize(tok));
+		next();
+	}
+
+	while (maybe_match('*')) {
+		ptr = new_type(8);
+		ptr->ptr = _type;
+		_type = ptr;
+	}
+
+	return (_type);
 }
 
 static struct node *
@@ -198,11 +279,13 @@ static struct node *
 postfix_expr(void)
 {
 	struct node *l, *n, *r;
+	struct struct_field *f;
 	int array;
 
 	n = l = primary_expr();
 	array = 0;
-	while (tok->tok == '(' || tok->tok == '[') {
+	while (tok->tok == '(' || tok->tok == '[' || tok->tok == '.' ||
+	    tok->tok == TOK_PTR) {
 		if (maybe_match('(')) {
 			n = new_node(N_CALL, n, NULL, NULL, n->type);
 			n->params = argument_expr_list();
@@ -211,6 +294,30 @@ postfix_expr(void)
 			n = new_node(N_ADD, n, r, NULL, l->type->ptr);
 			array = 1;
 			match(']');
+		} else if (maybe_match('.')) {
+			if (!l->type->_struct)
+				errx(1, "Invalid operation for member on"
+				    " non-struct at line %d", tok->line);
+			if (!(f = find_field(l->type->_struct->fields,
+			    tok->str)))
+				errx(1, "No field '%s' in struct %s at line %d",
+				    tok->str, l->type->_struct->name,
+				    tok->line);
+			next();
+			n = new_node(N_FIELD, n, (void *)f, NULL, f->type);
+		} else if (maybe_match(TOK_PTR)) {
+			if (!l->type->ptr || !l->type->ptr->_struct)
+				errx(1, "Invalid operation for member on"
+				    " non-struct pointer at line %d",
+				    tok->line);
+			if (!(f = find_field(l->type->ptr->_struct->fields,
+			    tok->str)))
+				errx(1, "No field '%s' in struct %s at line %d",
+				    tok->str, l->type->_struct->name,
+				    tok->line);
+			next();
+			n = new_node(N_DEREF, n, 0, NULL, n->type);
+			n = new_node(N_FIELD, n, (void *)f, NULL, f->type);
 		}
 	}
 	if (array)
@@ -382,6 +489,7 @@ _decl(struct type *__type)
 			ptr->ptr = _type;
 			_type = ptr;
 		}
+
 		if (tok->tok != TOK_ID)
 			errx(1, "Syntax error at line %d: Expected identifier,"
 			    " got %d\n", tok->line, tok->tok);
@@ -589,6 +697,10 @@ external_decl(void)
 
 	_type = type();
 
+	if (tok->tok == ';') {
+		next();
+		return;
+	}
 	if (tok->tok != TOK_ID)
 		errx(1, "Syntax error at line %d, Expected symbol, got %d",
 		    tok->line, tok->tok);

@@ -25,6 +25,25 @@ hash_str(char *s)
 	return (hash % SYMTAB_SIZE);
 }
 
+struct _struct *
+find_struct(char *name)
+{
+	struct symtab *tab;
+	struct _struct *s;
+	unsigned int hash;
+
+	tab = symtab;
+	hash = hash_str(name);
+	while (tab) {
+		for (s = tab->structs[hash]; s; s = s->next)
+			if (!strcmp(s->name, name))
+				return (s);
+		tab = tab->prev;
+	}
+
+	return (NULL);
+}
+
 static struct symbol *
 _find_sym(char *name, struct symtab *tab)
 {
@@ -84,16 +103,33 @@ add_string(char *str)
 	return (s);
 }
 
+struct _struct *
+add_struct(char *name)
+{
+	struct _struct *s;
+	unsigned int hash;
+
+	s = malloc(sizeof(struct _struct));
+	memset(s, 0, sizeof(struct _struct));
+
+	s->name = name;
+
+	hash = hash_str(name);
+	s->next = symtab->structs[hash];
+	symtab->structs[hash] = s;
+
+	return (s);
+}
+
 struct symbol *
 add_sym(char *name, struct type *type)
 {
 	struct symbol *s;
 	unsigned int hash;
 
+	if ((s = find_sym(name)) != NULL)
+		return (s);
 	hash = hash_str(name);
-	for (s = symtab->tab[hash]; s; s = s->next)
-		if (!strcmp(s->name, name))
-			return (s);
 
 	s = malloc(sizeof(struct symbol));
 	memset(s, 0, sizeof(struct symbol));

@@ -114,24 +114,6 @@ ir_store(long o1, long dst, int size)
 	}
 }
 
-static void
-ir_storeo(long o1, long o2, long dst, int size)
-{
-	switch (size) {
-	case 8:
-		new_ir(IR_STOREO, o1, o2, dst);
-		break;
-	case 4:
-		new_ir(IR_STOREO32, o1, o2, dst);
-		break;
-	case 1:
-		new_ir(IR_STOREO8, o1, o2, dst);
-		break;
-	default:
-		errx(1, "Invalid store size %d", size);
-	}
-}
-
 static int
 gen_if(struct node *n)
 {
@@ -175,9 +157,40 @@ gen_while(struct node *n)
 }
 
 static int
+gen_lval(struct node *n)
+{
+	int dst, tmp;
+
+	switch (n->op) {
+	case N_DEREF:
+		return (gen_ir_op(n->l));
+	case N_SYM:
+		dst = alloc_reg();
+		if (n->sym->global)
+			new_ir(IR_LOADG, (long)n->sym->name, 0, dst);
+		else {
+			tmp = alloc_reg();
+			new_ir(IR_LOADI, n->sym->loc, 0, tmp);
+			new_ir(IR_ADD, tmp, RARP, dst);
+			new_ir(IR_KILL, tmp, 0, 0);
+		}
+		return (dst);
+	case N_FIELD:
+		tmp = gen_lval(n->l);
+		dst = alloc_reg();
+		new_ir(IR_LOADI, ((struct struct_field *)n->r)->off, 0, dst);
+		new_ir(IR_ADD, dst, tmp, dst);
+		new_ir(IR_KILL, tmp, 0, 0);
+		return (dst);
+	default:
+		errx(1, "Invalid lvalue");
+	}
+}
+
+static int
 gen_ir_op(struct node *n)
 {
-	struct symbol *sym;
+	struct struct_field *f;
 	struct param *p;
 	int dst, l, op, r, tmp;
 
@@ -268,23 +281,21 @@ gen_ir_op(struct node *n)
 			new_ir(IR_KILL, tmp, 0, 0);
 		}
 		return (dst);
+	case N_FIELD:
+		f = (struct struct_field *)n->r;
+		l = gen_lval(n->l);
+		dst = alloc_reg();
+		tmp = alloc_reg();
+		new_ir(IR_LOADI, f->off, 0, tmp);
+		new_ir(IR_ADD, l, tmp, dst);
+		new_ir(IR_KILL, l, 0, 0);
+		new_ir(IR_KILL, tmp, 0, 0);
+		ir_load(dst, dst, _sizeof(f->type));
+		return (dst);
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
-		if (n->l->op == N_DEREF) {
-			l = gen_ir_op(n->l->l);
-			ir_store(r, l, _sizeof(n->l->type));
-			new_ir(IR_KILL, r, 0, 0);
-			return (l);
-		}
-		sym = n->l->sym;
-		tmp = alloc_reg();
-		if (sym->global) {
-			new_ir(IR_LOADG, (long)sym->name, 0, tmp);
-			ir_store(r, tmp, _sizeof(n->type));
-		} else {
-			new_ir(IR_LOADI, sym->loc, 0, tmp);
-			ir_storeo(r, RARP, tmp, _sizeof(n->type));
-		}
+		tmp = gen_lval(n->l);
+		ir_store(r, tmp, _sizeof(n->l->type));
 		new_ir(IR_KILL, tmp, 0, 0);
 		return (r);
 	case N_MULTIPLE:
@@ -379,9 +390,6 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_STORE] = "STORE",
     [IR_STORE32] = "STORE32",
     [IR_STORE8] = "STORE8",
-    [IR_STOREO] = "STOREO",
-    [IR_STOREO32] = "STOREO32",
-    [IR_STOREO8] = "STOREO8",
     [IR_KILL] = "KILL",
     [IR_RET] = "RET",
     [IR_MOV] = "MOV",

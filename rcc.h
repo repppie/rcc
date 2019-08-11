@@ -114,6 +114,7 @@ enum node_op {
 	N_GT,
 	N_GE,
 	N_IF,
+	N_FIELD,
 	N_WHILE,
 	N_DEREF,
 	N_ADDR,
@@ -146,9 +147,6 @@ enum ir_op {
 	IR_STORE,
 	IR_STORE32,
 	IR_STORE8,
-	IR_STOREO,
-	IR_STOREO32,
-	IR_STOREO8,
 	IR_KILL,
 	IR_ENTER,
 	IR_RET,
@@ -188,6 +186,7 @@ struct symbol {
 
 struct symtab {
 	struct symbol *tab[SYMTAB_SIZE];
+	struct _struct *structs[SYMTAB_SIZE];
 	struct symtab *prev;
 	int level;
 	int ar_offset;
@@ -207,6 +206,21 @@ struct type {
 	int stacksize;
 	int array;
 	struct type *ptr;
+	struct _struct *_struct;
+};
+
+struct struct_field {
+	struct struct_field *next;
+	char *name;
+	struct type *type;
+	int off;
+};
+
+struct _struct {
+	struct _struct *next;
+	char *name;
+	struct type *type;
+	struct struct_field *fields;
 };
 
 void lex(FILE *f);
@@ -222,8 +236,10 @@ void emit_x86(void);
 
 struct symbol *add_sym(char *name, struct type *type);
 struct symbol *add_string(char *str);
+struct _struct *add_struct(char *name);
 struct symbol *find_sym(char *name);
 struct symbol *find_global_sym(char *name);
+struct _struct *find_struct(char *name);
 void new_symtab(void);
 void del_symtab(void);
 
