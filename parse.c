@@ -286,7 +286,8 @@ postfix_expr(void)
 	n = l = primary_expr();
 	array = 0;
 	while (tok->tok == '(' || tok->tok == '[' || tok->tok == '.' ||
-	    tok->tok == TOK_PTR) {
+	    tok->tok == TOK_PTR || tok->tok == TOK_INCR || tok->tok ==
+	    TOK_DECR) {
 		if (maybe_match('(')) {
 			n = new_node(N_CALL, n, NULL, NULL, n->type);
 			n->params = argument_expr_list();
@@ -319,6 +320,14 @@ postfix_expr(void)
 			next();
 			n = new_node(N_DEREF, n, 0, NULL, n->type);
 			n = new_node(N_FIELD, n, (void *)f, NULL, f->type);
+		} else if (tok->tok == TOK_INCR || tok->tok == TOK_DECR) {
+			r = new_node(N_CONSTANT, NULL, NULL, (void *)1,
+			    new_type(4));
+			r = new_node(tok->tok == TOK_INCR ? N_ADD : N_SUB, l, r,
+			    NULL, l->type);
+			r = new_node(N_ASSIGN, l, r, NULL, l->type);
+			n = new_node(N_COMMA, l, r, NULL, l->type);
+			next();
 		}
 	}
 	if (array)
@@ -331,6 +340,7 @@ unary_expr(void)
 {
 	struct node *n, *r;
 	struct type *_type;
+	enum tokens t;
 
 	if (maybe_match('*')) {
 		n = unary_expr();
@@ -351,6 +361,14 @@ unary_expr(void)
 		_type = new_type(4);
 		n = new_node(N_CONSTANT, NULL, NULL, (void *)0, _type);
 		return (new_node(N_SUB, n, r, NULL, r->type));
+	} else if (tok->tok == TOK_INCR || tok->tok == TOK_DECR) {
+		t = tok->tok;
+		next();
+		r = unary_expr();
+		n = new_node(N_CONSTANT, NULL, NULL, (void *)1, new_type(4));
+		n = new_node(t == TOK_INCR ? N_ADD : N_SUB, r, n, NULL,
+		    r->type);
+		return (new_node(N_ASSIGN, r, n, NULL, r->type));
 	}
 	return (postfix_expr());
 }
