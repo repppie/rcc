@@ -123,6 +123,7 @@ enum node_op {
 	N_DEREF,
 	N_ADDR,
 	N_NOT,
+	N_COMMA,
 };
 
 extern struct ir *head_ir;

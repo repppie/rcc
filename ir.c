@@ -397,6 +397,13 @@ gen_ir_op(struct node *n)
 		return (gen_for(n));
 	case N_WHILE:
 		return (gen_while(n));
+	case N_COMMA:
+		dst = alloc_reg();
+		tmp = alloc_reg();
+		dst = gen_ir_op(n->l);
+		tmp = gen_ir_op(n->r);
+		new_ir(IR_KILL, tmp, 0, 0);
+		return (dst);
 	default:
 		errx(1, "Unknown node op %d", n->op);
 		return (-1);

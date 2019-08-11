@@ -9,6 +9,7 @@ static struct type *type(void);
 static struct node *expr(void);
 static struct node *stmt(void);
 static struct node *stmts(void);
+static struct node *assign_expr(void);
 
 static struct node *
 new_node(enum node_op op, struct node *l, struct node *r, void *v,
@@ -261,7 +262,7 @@ argument_expr_list(void)
 	while (!maybe_match(')')) {
 		p = malloc(sizeof(struct param));
 		memset(p, 0, sizeof(struct param));
-		p->n = expr();
+		p->n = assign_expr();
 		if (!p_head)
 			p_head = p;
 		if (p_last)
@@ -459,7 +460,14 @@ assign_expr(void)
 static struct node *
 expr(void)
 {
-	return (assign_expr());
+	struct node *l, *r;
+
+	l = assign_expr();
+	while (maybe_match(',')) {
+		r = assign_expr();
+		l = new_node(N_COMMA, l, r, 0, l->type);
+	}
+	return (l);
 }
 
 static struct type *
