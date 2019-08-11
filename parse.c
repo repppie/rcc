@@ -426,16 +426,26 @@ equality_expr(void)
 static struct node *
 assign_expr(void)
 {
-	struct node *l, *r, *n;
+	struct node *l, *r;
+	enum tokens t;
 
 	l = equality_expr();
-	if (maybe_match('=')) {
-		r = expr();
-		n = new_node(N_ASSIGN, l, r, 0, l->type);
-		return (n);
-	} else
-		return (l);
-
+	while (tok->tok == '=' || tok->tok == TOK_ASSADD || tok->tok ==
+	    TOK_ASSSUB || tok->tok == TOK_ASSMUL || tok->tok == TOK_ASSDIV) {
+		t = tok->tok;
+		next();
+		r = assign_expr();
+		if (t == TOK_ASSADD)
+			r = new_node(N_ADD, l, r, 0, l->type);
+		else if (t == TOK_ASSSUB)
+			r = new_node(N_SUB, l, r, 0, l->type);
+		else if (t == TOK_ASSMUL)
+			r = new_node(N_MUL, l, r, 0, l->type);
+		else if (t == TOK_ASSDIV)
+			r = new_node(N_DIV, l, r, 0, l->type);
+		l = new_node(N_ASSIGN, l, r, 0, l->type);
+	}
+	return (l);
 }
 
 static struct node *
