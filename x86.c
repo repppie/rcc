@@ -124,6 +124,7 @@ static void
 emit_x86_op(struct ir *ir)
 {
 	struct param *p;
+	char *instr;
 	int i, off;
 
 	emit_no_nl("# ");
@@ -210,6 +211,22 @@ emit_x86_op(struct ir *ir)
 		emit("movq %%rax, %%%s", x86_reg(ir->dst, 8));
 		if (ir_regs[ir->dst] != RAX)
 			emit("popq %%rax");
+		break;
+	case IR_OR:
+	case IR_AND:
+	case IR_XOR:
+		if (ir->op == IR_OR)
+			instr = "orq";
+		else if (ir->op == IR_AND)
+			instr = "andq";
+		else if (ir->op == IR_XOR)
+			instr = "xorq";
+		emit("pushq %%%s", x86_reg(ir->o2, 8));
+		emit("%s %%%s, %%%s", instr, x86_reg(ir->o1, 8),
+		    x86_reg(ir->o2, 8));
+		emit("movq %%%s, %%%s", x86_reg(ir->o2, 8), x86_reg(ir->dst,
+		    8));
+		emit("popq %%%s", x86_reg(ir->o2, 8));
 		break;
 	case IR_NOT:
 		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,

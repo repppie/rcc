@@ -356,6 +356,13 @@ unary_expr(void)
 	} else if (maybe_match('!')) {
 		n = unary_expr();
 		return (new_node(N_NOT, n, NULL, 0, n->type));
+	} else if (maybe_match('~')) {
+		r = unary_expr();
+		_type = new_type(4);
+		n = new_node(N_CONSTANT, NULL, NULL, (void *)0, _type);
+		n = new_node(N_SUB, n, r, NULL, r->type);
+		r = new_node(N_CONSTANT, NULL, NULL, (void *)1, _type);
+		return (new_node(N_SUB, n, r, NULL, r->type));
 	} else if (maybe_match('-')) {
 		r = unary_expr();
 		_type = new_type(4);
@@ -451,12 +458,51 @@ equality_expr(void)
 }
 
 static struct node *
+xor_expr(void)
+{
+	struct node *l, *r;
+
+	l = equality_expr();
+	while (maybe_match('^')) {
+		r = equality_expr();
+		l = new_node(N_XOR, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
+and_expr(void)
+{
+	struct node *l, *r;
+
+	l = xor_expr();
+	while (maybe_match('&')) {
+		r = xor_expr();
+		l = new_node(N_AND, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
+or_expr(void)
+{
+	struct node *l, *r;
+
+	l = and_expr();
+	while (maybe_match('|')) {
+		r = and_expr();
+		l = new_node(N_OR, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
 assign_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = equality_expr();
+	l = or_expr();
 	while (tok->tok == '=' || tok->tok == TOK_ASSADD || tok->tok ==
 	    TOK_ASSSUB || tok->tok == TOK_ASSMUL || tok->tok == TOK_ASSDIV) {
 		t = tok->tok;

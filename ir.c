@@ -264,10 +264,19 @@ gen_ir_op(struct node *n)
 		return (dst);
 	case N_MUL:
 	case N_DIV:
+	case N_OR:
+	case N_AND:
+	case N_XOR:
 		if (n->op == N_MUL)
 			op = IR_MUL;
 		else if (n->op == N_DIV)
 			op = IR_DIV;
+		else if (n->op == N_OR)
+			op = IR_OR;
+		else if (n->op == N_AND)
+			op = IR_AND;
+		else if (n->op == N_XOR)
+			op = IR_XOR;
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
