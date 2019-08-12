@@ -118,6 +118,8 @@ enum node_op {
 	N_LE,
 	N_GT,
 	N_GE,
+	N_LOR,
+	N_LAND,
 	N_IF,
 	N_FIELD,
 	N_WHILE,

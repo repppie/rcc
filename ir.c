@@ -195,6 +195,64 @@ gen_while(struct node *n)
 }
 
 static int
+gen_lor(struct node *n)
+{
+	int dst, f, l, next, out, r, t;
+
+	dst = alloc_reg();
+	next = new_label();
+	out = new_label();
+	t = new_label();
+	f = new_label();
+
+	l = gen_ir_op(n->l);
+	new_ir(IR_CBR, l, t, next);
+	new_ir(IR_LABEL, next, 0, 0);
+	r = gen_ir_op(n->r);
+	new_ir(IR_CBR, r, t, f);
+	new_ir(IR_LABEL, f, 0, 0);
+	new_ir(IR_LOADI, 0, 0, dst);
+	new_ir(IR_JUMP, 0, 0, out);
+	new_ir(IR_LABEL, t, 0, 0);
+	new_ir(IR_LOADI, 1, 0, dst);
+	new_ir(IR_JUMP, 0, 0, out);
+	new_ir(IR_LABEL, out, 0, 0);
+	new_ir(IR_KILL, l, 0, 0);
+	new_ir(IR_KILL, r, 0, 0);
+
+	return (dst);
+}
+
+static int
+gen_land(struct node *n)
+{
+	int dst, f, l, next, out, r, t;
+
+	dst = alloc_reg();
+	next = new_label();
+	out = new_label();
+	t = new_label();
+	f = new_label();
+
+	l = gen_ir_op(n->l);
+	new_ir(IR_CBR, l, next, f);
+	new_ir(IR_LABEL, next, 0, 0);
+	r = gen_ir_op(n->r);
+	new_ir(IR_CBR, r, t, f);
+	new_ir(IR_LABEL, t, 0, 0);
+	new_ir(IR_LOADI, 1, 0, dst);
+	new_ir(IR_JUMP, 0, 0, out);
+	new_ir(IR_LABEL, f, 0, 0);
+	new_ir(IR_LOADI, 0, 0, dst);
+	new_ir(IR_JUMP, 0, 0, out);
+	new_ir(IR_LABEL, out, 0, 0);
+	new_ir(IR_KILL, l, 0, 0);
+	new_ir(IR_KILL, r, 0, 0);
+
+	return (dst);
+}
+
+static int
 gen_lval(struct node *n)
 {
 	int dst, tmp;
@@ -398,6 +456,10 @@ gen_ir_op(struct node *n)
 		new_ir(IR_KILL, l, 0, 0);
 		new_ir(IR_KILL, r, 0, 0);
 		return (dst);
+	case N_LOR:
+		return (gen_lor(n));
+	case N_LAND:
+		return (gen_land(n));
 	case N_IF:
 		return (gen_if(n));
 	case N_DO:

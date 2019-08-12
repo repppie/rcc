@@ -497,12 +497,38 @@ or_expr(void)
 }
 
 static struct node *
+land_expr(void)
+{
+	struct node *l, *r;
+
+	l = or_expr();
+	while (maybe_match(TOK_AND)) {
+		r = or_expr();
+		l = new_node(N_LAND, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
+lor_expr(void)
+{
+	struct node *l, *r;
+
+	l = land_expr();
+	while (maybe_match(TOK_OR)) {
+		r = land_expr();
+		l = new_node(N_LOR, l, r, 0, l->type);
+	}
+	return (l);
+}
+
+static struct node *
 assign_expr(void)
 {
 	struct node *l, *r;
 	enum tokens t;
 
-	l = or_expr();
+	l = lor_expr();
 	while (tok->tok == '=' || tok->tok == TOK_ASSADD || tok->tok ==
 	    TOK_ASSSUB || tok->tok == TOK_ASSMUL || tok->tok == TOK_ASSDIV) {
 		t = tok->tok;
