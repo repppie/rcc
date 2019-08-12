@@ -5,6 +5,9 @@
 
 #include "rcc.h"
 
+static int break_lbl = -1;
+static int cont_lbl = -1;
+
 static struct type *type(void);
 static struct node *expr(void);
 static struct node *stmt(void);
@@ -685,7 +688,12 @@ static struct node *
 _do(void)
 {
 	struct node *cond, *l, *n;
+	int old_brk, old_cont;
 
+	old_brk = break_lbl;
+	old_cont = cont_lbl;
+	break_lbl = new_label();
+	cont_lbl = new_label();
 	match(TOK_DO);
 	l = stmts();
 	match(TOK_WHILE);
@@ -694,6 +702,10 @@ _do(void)
 	match(')');
 	n = new_node(N_DO, l, 0, 0, NULL);
 	n->cond = cond;
+	n->break_lbl = break_lbl;
+	n->cont_lbl = cont_lbl;
+	break_lbl = old_brk;
+	cont_lbl = old_cont;
 	return (n);
 }
 
@@ -701,6 +713,7 @@ static struct node *
 _for(void)
 {
 	struct node *cond, *l, *n, *post, *pre;
+	int old_brk, old_cont;
 
 	match(TOK_FOR);
 	match('(');
@@ -710,11 +723,21 @@ _for(void)
 	match(';');
 	post = expr();
 	match(')');
+
+	old_brk = break_lbl;
+	old_cont = cont_lbl;
+	break_lbl = new_label();
+	cont_lbl = new_label();
 	l = stmts();
 	n = new_node(N_FOR, l, 0, 0, NULL);
 	n->cond = cond;
 	n->pre = pre;
 	n->post = post;
+	n->break_lbl = break_lbl;
+	n->cont_lbl = cont_lbl;
+	break_lbl = old_brk;
+	cont_lbl = old_cont;
+
 	return (n);
 }
 
@@ -722,13 +745,24 @@ static struct node *
 _while(void)
 {
 	struct node *cond, *l, *n;
+	int old_brk, old_cont;
 
 	match(TOK_WHILE);
 	match('(');
 	cond = expr();
 	match(')');
+
+	old_brk = break_lbl;
+	old_cont = cont_lbl;
+	break_lbl = new_label();
+	cont_lbl = new_label();
 	l = stmts();
 	n = new_node(N_WHILE, l, 0, 0, NULL);
+	n->break_lbl = break_lbl;
+	n->cont_lbl = cont_lbl;
+	break_lbl = old_brk;
+	cont_lbl = old_cont;
+
 	n->cond = cond;
 	return (n);
 }
@@ -756,7 +790,13 @@ stmt(void)
 			n = _if();
 		else if (tok->tok == TOK_WHILE)
 			n = _while();
-		else {
+		else if (maybe_match(TOK_BREAK)) {
+			n = new_node(N_GOTO, (void *)(long)break_lbl, NULL,
+			    NULL, NULL);
+		} else if (maybe_match(TOK_CONTINUE)) {
+			n = new_node(N_GOTO, (void *)(long)cont_lbl, NULL,
+			    NULL, NULL);
+		} else {
 			n = expr();
 			match(';');
 		}

@@ -9,8 +9,6 @@
 struct ir *head_ir;
 static struct ir *last_ir;
 
-static int labels;
-
 static int gen_ir_op(struct node *n);
 
 static int
@@ -22,12 +20,6 @@ _sizeof(struct type *t)
 		return (8);
 	else
 		return (t->size);
-}
-
-static int
-new_label(void)
-{
-	return labels++;
 }
 
 static struct ir *
@@ -139,11 +131,12 @@ gen_if(struct node *n)
 static int
 gen_for(struct node *n)
 {
-	int cond, start, in, out;
+	int cond, start, in, next, out;
 
 	start = new_label();
 	in = new_label();
-	out = new_label();
+	out = n->break_lbl;
+	next = n->cont_lbl;
 	gen_ir_op(n->pre);
 	new_ir(IR_LABEL, start, 0, 0);
 	cond = gen_ir_op(n->cond);
@@ -151,6 +144,7 @@ gen_for(struct node *n)
 	new_ir(IR_KILL, cond, 0, 0);
 	new_ir(IR_LABEL, in, 0, 0);
 	gen_ir_op(n->l);
+	new_ir(IR_LABEL, next, 0, 0);
 	gen_ir_op(n->post);
 	new_ir(IR_JUMP, 0, 0, start);
 	new_ir(IR_LABEL, out, 0, 0);
@@ -161,12 +155,14 @@ gen_for(struct node *n)
 static int
 gen_do(struct node *n)
 {
-	int cond, start, out;
+	int cond, start, next, out;
 
 	start = new_label();
-	out = new_label();
+	out = n->break_lbl;
+	next = n->cont_lbl;
 	new_ir(IR_LABEL, start, 0, 0);
 	gen_ir_op(n->l);
+	new_ir(IR_LABEL, next, 0, 0);
 	cond = gen_ir_op(n->cond);
 	new_ir(IR_CBR, cond, start, out);
 	new_ir(IR_KILL, cond, 0, 0);
@@ -179,9 +175,9 @@ gen_while(struct node *n)
 {
 	int cond, start, in, out;
 
-	start = new_label();
+	start = n->cont_lbl;
 	in = new_label();
-	out = new_label();
+	out = n->break_lbl;
 	new_ir(IR_LABEL, start, 0, 0);
 	cond = gen_ir_op(n->cond);
 	new_ir(IR_CBR, cond, in, out);
@@ -468,6 +464,9 @@ gen_ir_op(struct node *n)
 		return (gen_for(n));
 	case N_WHILE:
 		return (gen_while(n));
+	case N_GOTO:
+		new_ir(IR_JUMP, 0, 0, (long)n->l);
+		return (-1);
 	case N_COMMA:
 		dst = alloc_reg();
 		tmp = alloc_reg();

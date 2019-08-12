@@ -82,19 +82,21 @@ struct node {
 	struct node *l;
 	struct node *r;
 	struct node *next;
+	struct type *type;
 	union {
 		struct node *cond;
 		struct param *params;
 	};
 	struct node *pre;
 	struct node *post;
+	int break_lbl;
+	int cont_lbl;
 	union {
 		long val;
 		char *str;
 		struct symbol *sym;
 	};
 	int op;
-	struct type *type;
 };
 
 enum node_op {
@@ -125,6 +127,7 @@ enum node_op {
 	N_WHILE,
 	N_FOR,
 	N_DO,
+	N_GOTO,
 	N_DEREF,
 	N_ADDR,
 	N_NOT,
@@ -257,5 +260,6 @@ struct symbol *find_global_sym(char *name);
 struct _struct *find_struct(char *name);
 void new_symtab(void);
 void del_symtab(void);
+int new_label(void);
 
 #endif

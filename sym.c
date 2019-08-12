@@ -11,6 +11,8 @@ struct symtab *symtab = &l0_symtab;
 struct symbol *strings;
 static int nr_strings;
 
+int labels;
+
 #define	HASHSTEP(x, c) (((x << 5) + x) + (c))
 
 static unsigned int
@@ -169,3 +171,10 @@ del_symtab(void)
 
 	symtab = symtab->prev;
 }
+
+int
+new_label(void)
+{
+	return labels++;
+}
+
