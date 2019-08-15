@@ -29,6 +29,7 @@ main(int argc, char **argv)
 	add_special_funcs();
 	parse();
 	gen_ir();
+	opt();
 	emit_x86();
 
 	return (0);

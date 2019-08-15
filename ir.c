@@ -123,6 +123,7 @@ gen_if(struct node *n)
 	new_ir(IR_LABEL, else_lbl, 0, 0);
 	if (n->r)
 		gen_ir_op(n->r);
+	new_ir(IR_JUMP, 0, 0, out_lbl);
 	new_ir(IR_LABEL, out_lbl, 0, 0);
 
 	return (-1);
@@ -138,12 +139,14 @@ gen_for(struct node *n)
 	out = n->break_lbl;
 	next = n->cont_lbl;
 	gen_ir_op(n->pre);
+	new_ir(IR_JUMP, 0, 0, start);
 	new_ir(IR_LABEL, start, 0, 0);
 	cond = gen_ir_op(n->cond);
 	new_ir(IR_CBR, cond, in, out);
 	new_ir(IR_KILL, cond, 0, 0);
 	new_ir(IR_LABEL, in, 0, 0);
 	gen_ir_op(n->l);
+	new_ir(IR_JUMP, 0, 0, next);
 	new_ir(IR_LABEL, next, 0, 0);
 	gen_ir_op(n->post);
 	new_ir(IR_JUMP, 0, 0, start);
@@ -160,8 +163,10 @@ gen_do(struct node *n)
 	start = new_label();
 	out = n->break_lbl;
 	next = n->cont_lbl;
+	new_ir(IR_JUMP, 0, 0, start);
 	new_ir(IR_LABEL, start, 0, 0);
 	gen_ir_op(n->l);
+	new_ir(IR_JUMP, 0, 0, next);
 	new_ir(IR_LABEL, next, 0, 0);
 	cond = gen_ir_op(n->cond);
 	new_ir(IR_CBR, cond, start, out);
@@ -178,6 +183,7 @@ gen_while(struct node *n)
 	start = n->cont_lbl;
 	in = new_label();
 	out = n->break_lbl;
+	new_ir(IR_JUMP, 0, 0, start);
 	new_ir(IR_LABEL, start, 0, 0);
 	cond = gen_ir_op(n->cond);
 	new_ir(IR_CBR, cond, in, out);
@@ -540,10 +546,11 @@ dump_ir_op(FILE *f, struct ir *ir)
 }
 
 void
-dump_ir(void)
+dump_ir(struct ir *ir)
 {
-	struct ir *ir;
-
-	for (ir = head_ir; ir; ir = ir->next)
-		dump_ir_op(stdout, ir);
+	int i;
+	for (i = 0; ir; ir = ir->next, i++)
+		//dump_ir_op(stdout, ir);
+		printf("%d: %s %ld, %ld, %ld\n", i, ir_names[ir->op], ir->o1,
+		    ir->o2, ir->dst);
 }

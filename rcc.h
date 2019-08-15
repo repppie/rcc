@@ -143,6 +143,8 @@ struct ir {
 	long o1;
 	long o2;
 	long dst;
+	int node;
+	int leader;
 };
 
 enum ir_op {
@@ -156,6 +158,7 @@ enum ir_op {
 	IR_XOR,
 	IR_LOADI,
 	IR_LOADG,
+
 	IR_LOAD,
 	IR_LOAD32,
 	IR_LOAD8,
@@ -166,6 +169,7 @@ enum ir_op {
 	IR_STORE32,
 	IR_STORE8,
 	IR_KILL,
+
 	IR_ENTER,
 	IR_RET,
 	IR_MOV,
@@ -176,6 +180,7 @@ enum ir_op {
 	IR_GT,
 	IR_GE,
 	IR_CBR,
+
 	IR_JUMP,
 	IR_LABEL,
 	IR_CALL,
@@ -247,7 +252,7 @@ struct type *new_type(int size);
 void parse(void);
 
 void dump_ir_op(FILE *f, struct ir *ir);
-void dump_ir(void);
+void dump_ir(struct ir *ir);
 void gen_ir(void);
 
 void emit_x86(void);
@@ -261,5 +266,7 @@ struct _struct *find_struct(char *name);
 void new_symtab(void);
 void del_symtab(void);
 int new_label(void);
+
+void opt(void);
 
 #endif
