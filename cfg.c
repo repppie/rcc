@@ -15,6 +15,7 @@ struct bb {
 	int po;
 	int idom;
 	struct set *df;
+	int nr_ir;
 };
 
 struct cfg_edge {
@@ -115,7 +116,7 @@ static void
 make_cfg(struct symbol *s)
 {
 	struct ir *ir, *last[MAX_CFG], *leader[MAX_CFG], *p;
-	int i, next;
+	int i, next, nr;
 
 	ir = remove_kill(s->ir);
 	dump_ir(ir);
@@ -133,13 +134,16 @@ make_cfg(struct symbol *s)
 	for (i = 0; i < next - 1; i++) {
 		p = leader[i];
 		ir = leader[i]->next;
+		nr = 1;
 		while (ir && !ir->leader) {
 			p = ir;
 			if (ir->op == IR_JUMP || ir->op == IR_CBR)
 				break;
+			nr++;
 			ir = ir->next;
 		}
 		last[i] = p;
+		bb[i].nr_ir = nr;
 		if (p->op == IR_CBR) {
 			add_edge(i, find_node(p->o2));
 			add_edge(i, find_node(p->dst));
@@ -233,10 +237,89 @@ get_rpo(int n, int po)
 	return (po + 1);
 }
 
+static void
+add_phi(struct bb *bb, int name)
+{
+	printf("adding phi for %d to bb %d\n", name, bb->n);
+	last_ir = NULL;
+	new_ir(IR_PHI, 0, 0, name);
+	last_ir->next = bb->ir;
+	bb->ir = last_ir;
+}
+
+static int
+has_phi(struct bb *bb, int name)
+{
+	struct ir *ir;
+	int i;
+
+	for (i = 0, ir = bb->ir; i < bb->nr_ir && ir->op == IR_PHI; i++, ir =
+	    ir->next)
+		if (ir->dst == name)
+			return (1);
+	return (0);
+}
+
+static void
+get_live(struct symbol *sym)
+{
+	struct set **blocks, *globals, *varkill, *work;
+	struct ir *ir;
+	int b, d, i, n;
+
+	blocks = malloc(sym->nr_temps * sizeof(struct set *));
+	for (i = 0; i < sym->nr_temps; i++)
+		blocks[i] = new_set(nr_edges);
+
+	globals = new_set(sym->nr_temps);
+	varkill = new_set(sym->nr_temps);
+
+	for (i = 0; i < nr_nodes; i++) {
+		for (n = 0, ir = bb[i].ir; n < bb[i].nr_ir; n++, ir =
+		    ir->next) {
+			if (ir->op <= IR_GE) {
+				printf("2 operands ");
+				if (!set_set(varkill, ir->o1))
+					set_add(globals, ir->o1);
+				if (!set_set(varkill, ir->o2))
+					set_add(globals, ir->o2);
+			} else if (ir->op <= IR_STORE8) {
+				printf("1 operand ");
+				if (!set_set(varkill, ir->o1))
+					set_add(globals, ir->o1);
+			}
+			if (ir->op > IR_LOADG)
+				continue;
+			set_add(varkill, ir->dst);
+			dump_ir_op(stdout, ir);
+			printf("adding %d to block(%ld)\n", i, ir->dst);
+			set_add(blocks[ir->dst], i);
+		}
+	}
+
+	for (i = 0; i < sym->nr_temps; i++) {
+		if (!set_set(globals, i))
+			continue;
+		work = blocks[i];
+		for (b = 0; b < nr_nodes; b++) {
+			if (!set_set(work, b))
+				continue;
+			for (d = 0; d < nr_nodes; d++) {
+				if (!set_set(bb[b].df, d))
+					continue;
+				if (!has_phi(&bb[b], i)) {
+					add_phi(&bb[b], i);
+					set_add(work, d);
+				}
+			}
+		}
+	}
+}
+
 void
 opt(void)
 {
-	int i, j;
+	int i;
 
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		if (symtab->tab[i] && symtab->tab[i]->body) {
@@ -278,14 +361,9 @@ opt(void)
 
 			nrpo = nr_nodes - 1;
 			get_rpo(0, 0);
-
-			printf("rpo: ");
-			for (j = 0; j < nr_nodes; j++)
-				printf("%d ", rpo[j]);
-			printf("\n");
-
 			get_doms();
 			get_df();
+			get_live(symtab->tab[i]);
 		}
 	}
 }

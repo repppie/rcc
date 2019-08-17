@@ -7,7 +7,7 @@
 #include "rcc.h"
 
 struct ir *head_ir;
-static struct ir *last_ir;
+struct ir *last_ir;
 
 static int gen_ir_op(struct node *n);
 
@@ -22,7 +22,7 @@ _sizeof(struct type *t)
 		return (t->size);
 }
 
-static struct ir *
+struct ir *
 new_ir(int op, long o1, long o2, long dst)
 {
 	struct ir *ir;
@@ -501,6 +501,7 @@ gen_ir(void)
 			new_ir(IR_ENTER, s->tab->ar_offset, (long)s->params, 0);
 			gen_ir_op(s->body);
 			s->ir = head_ir;
+			s->nr_temps = cur_reg;
 		}
 	}
 }
@@ -536,6 +537,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_JUMP] = "JUMP",
     [IR_LABEL] = "LABEL",
     [IR_CALL] = "CALL",
+    [IR_PHI] = "PHI",
 };
 
 void

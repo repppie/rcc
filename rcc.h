@@ -135,6 +135,7 @@ enum node_op {
 };
 
 extern struct ir *head_ir;
+extern struct ir *last_ir;
 
 /* OP l,r -> dst */
 struct ir {
@@ -156,34 +157,35 @@ enum ir_op {
 	IR_OR,
 	IR_AND,
 	IR_XOR,
-	IR_LOADI,
-	IR_LOADG,
-
-	IR_LOAD,
-	IR_LOAD32,
-	IR_LOAD8,
-	IR_LOADO,
-	IR_LOADO32,
-	IR_LOADO8,
-	IR_STORE,
-	IR_STORE32,
-	IR_STORE8,
-	IR_KILL,
-
-	IR_ENTER,
-	IR_RET,
-	IR_MOV,
 	IR_EQ,
 	IR_NE,
+
 	IR_LT,
 	IR_LE,
 	IR_GT,
 	IR_GE,
+	IR_MOV,
+	IR_STORE,
+	IR_STORE32,
+	IR_STORE8,
+	IR_LOADO,
+	IR_LOADO32,
+
+	IR_LOADO8,
+	IR_LOAD,
+	IR_LOAD32,
+	IR_LOAD8,
+	IR_LOADI,
+	IR_LOADG,
+	IR_KILL,
+	IR_ENTER,
+	IR_RET,
 	IR_CBR,
 
 	IR_JUMP,
 	IR_LABEL,
 	IR_CALL,
+	IR_PHI,
 	NR_IR_OPS,
 };
 
@@ -205,6 +207,7 @@ struct symbol {
 	struct param *params;
 	struct symtab *tab;
 	char *str;
+	int nr_temps;
 };
 
 struct symtab {
@@ -256,6 +259,7 @@ void lex(FILE *f);
 struct type *new_type(int size);
 void parse(void);
 
+struct ir *new_ir(int op, long o1, long o2, long dst);
 void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(struct ir *ir);
 void gen_ir(void);
