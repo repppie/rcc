@@ -246,6 +246,11 @@ struct _struct {
 	struct struct_field *fields;
 };
 
+struct set {
+	int n;
+	char *bits;
+};
+
 void lex(FILE *f);
 
 struct type *new_type(int size);
@@ -268,5 +273,10 @@ void del_symtab(void);
 int new_label(void);
 
 void opt(void);
+
+struct set *new_set(int n);
+int set_set(struct set *s, int n);
+void set_add(struct set *s, int n);
+void set_del(struct set *s, int n);
 
 #endif
