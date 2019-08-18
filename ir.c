@@ -529,10 +529,7 @@ gen_ir_op(struct node *n)
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
 		tmp = gen_lval(n->l);
-		if (is_alloc(r))
-			ir_store(r, tmp, _sizeof(n->l->type));
-		else
-			ir_mov(r, tmp);
+		ir_mov(r, tmp);
 		ir_kill(tmp);
 		return (r);
 	case N_MULTIPLE:
@@ -690,13 +687,27 @@ sigil(int type)
 void
 dump_ir_op(FILE *f, struct ir *ir)
 {
+	struct param *p;
+
 	fprintf(f, "%s ", ir_names[ir->op]);
-	if (ir->o1.type != IRO_UNUSED)
+	if (ir->op == IR_PHI) {
+		for (p = (struct param *)ir->o1.v; p; p = p->next)
+			fprintf(f, "%%%d.%d ", p->val, p->sub);
+	} else if (ir->o1.type != IRO_UNUSED) {
 		fprintf(f, "%c%ld", sigil(ir->o1.type), ir->o1.v);
-	if (ir->o2.type != IRO_UNUSED)
+		if (ir->o1.type == IRO_TEMP && ir->o1.sub)
+			fprintf(f, "_%d", ir->o1.sub);
+	}
+	if (ir->o2.type != IRO_UNUSED) {
 		fprintf(f, " %c%ld", sigil(ir->o2.type), ir->o2.v);
-	if (ir->dst.type != IRO_UNUSED)
+		if (ir->o2.type == IRO_TEMP && ir->o2.sub)
+			fprintf(f, "_%d", ir->o2.sub);
+	}
+	if (ir->dst.type != IRO_UNUSED) {
 		fprintf(f, " -> %c%ld", sigil(ir->dst.type), ir->dst.v);
+		if (ir->dst.type == IRO_TEMP && ir->dst.sub)
+			fprintf(f, "_%d", ir->dst.sub);
+	}
 	fprintf(f, "\n");
 }
 

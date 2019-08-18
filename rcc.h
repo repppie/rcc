@@ -140,6 +140,7 @@ extern struct ir *last_ir;
 struct ir_oprnd {
 	long v;
 	int type;
+	int sub;
 };
 
 /* OP l,r -> dst */
@@ -238,6 +239,7 @@ struct param {
 		struct symbol *sym;
 	};
 	int val;
+	int sub;
 };
 
 struct type {
@@ -281,6 +283,8 @@ struct bb {
 	struct ir *ir;
 	int po;
 	int idom;
+	int domsucc;
+	int domsib;
 	struct set *df;
 	int nr_ir;
 };
@@ -292,12 +296,12 @@ struct cfg_edge {
 	int next_pred;
 };
 
-#define FOREACH_PRED(f, b, e, p) for (e =  f->bb[b].pred, p = \
-    &f->bb[f->edge[e].src];  e != -1; e = f->edge[e].next_pred, p = \
-    &f->bb[f->edge[e].src])
-#define FOREACH_SUCC(f, b, e, p) for (v = f->bb[b].succ, p = \
-    &f->bb[f->edge[e].sink]; e != -1; e = f->edge[e].next_succ, p = \
-    &f->bb[f->edge[e].sink])
+#define FOREACH_PRED(f, b, e, p) for (e =  (b)->pred, p = \
+    &(f)->bb[(f)->edge[e].src]; e != -1; e = f->edge[e].next_pred, p = \
+    &(f)->bb[(f)->edge[e].src])
+#define FOREACH_SUCC(f, b, e, p) for (e = (b)->succ, p = \
+    &(f)->bb[(f)->edge[e].sink]; e != -1; e = (f)->edge[e].next_succ, p = \
+    &(f)->bb[f->edge[e].sink])
 
 struct set {
 	int n;

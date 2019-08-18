@@ -159,8 +159,11 @@ get_doms(struct func *f)
 	struct bb *p, *pred;
 	int b, ch, i, j, new_idom;
 
-	for (i = 0; i < nr_bbs; i++) 
+	for (i = 0; i < nr_bbs; i++) {
 		f->bb[i].idom = -1;
+		f->bb[i].domsucc = -1;
+		f->bb[i].domsib = -1;
+	}
 
 	f->bb[0].idom = 0;
 	ch = 1;
@@ -169,14 +172,14 @@ get_doms(struct func *f)
 		for (i = 1; i < nr_bbs; i++) {
 			b = f->rpo[i];
 			pred = NULL;
-			FOREACH_PRED(f, b, j, p) {
+			FOREACH_PRED(f, &f->bb[b], j, p) {
 				if (p->idom != -1) {
 					new_idom = f->edge[j].src;
 					pred = p;
 					break;
 				}
 			}
-			FOREACH_PRED(f, b, j, p) {
+			FOREACH_PRED(f, &f->bb[b], j, p) {
 				if (p == pred)
 					continue;
 				if (p->idom != -1)
@@ -188,6 +191,16 @@ get_doms(struct func *f)
 				ch = 1;
 			}
 		}
+	}
+
+	/* Dominator tree. */
+	for (i = 1; i < f->nr_bbs; i++) {
+		j = f->bb[i].idom;
+		if (f->bb[j].domsucc != -1) {
+			f->bb[i].domsib = f->bb[j].domsucc;
+			f->bb[j].domsucc = i;
+		} else
+			f->bb[j].domsucc = i;
 	}
 }
 
@@ -204,7 +217,7 @@ get_df(struct func *f)
 		/* Multiple preds. */
 		if (f->bb[i].pred != -1 && f->edge[f->bb[i].pred].next_pred !=
 		    -1) {
-			FOREACH_PRED(f, i, j, p) {
+			FOREACH_PRED(f, &f->bb[i], j, p) {
 				r = f->edge[j].src;
 				while (r != f->bb[i].idom) {
 					set_add(f->bb[r].df, i);

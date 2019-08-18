@@ -18,7 +18,7 @@ add_phi(struct bb *bb, int name)
 	bb->nr_ir++;
 }
 
-static int
+static struct ir *
 has_phi(struct bb *bb, int name)
 {
 	struct ir *ir;
@@ -27,8 +27,92 @@ has_phi(struct bb *bb, int name)
 	for (i = 0, ir = bb->ir; i < bb->nr_ir && ir->op == IR_PHI; i++, ir =
 	    ir->next)
 		if (ir->dst.type == IRO_TEMP && ir->dst.v == name)
-			return (1);
+			return (ir);
 	return (0);
+}
+
+static int counter[1000];
+static int stack[100][1000];
+static int pos[1000];
+
+static void
+fill_phi(struct ir *ir)
+{
+	struct param *p;
+	int cur, n;
+
+	n = ir->dst.v;
+	cur = stack[n][pos[n] - 1];
+	if (ir->o1.type == IRO_MISC) {
+		for (p = (struct param *)ir->o1.v; p; p = p->next)
+			if (p->sub == cur)
+				return;
+	}
+	p = malloc(sizeof(struct param));
+	memset(p, 0, sizeof(struct param));
+	p->next = (struct param *)ir->o1.v;
+	p->val = n;
+	p->sub = cur;
+	ir->o1.v = (long)p;
+	ir->o1.type = IRO_MISC;
+}
+
+static int
+new_name(int n)
+{
+	int i;
+
+	i = counter[n];
+	counter[n]++;
+	stack[n][pos[n]++] = i;
+
+	return (i);
+}
+
+static void
+ssa_rename(struct func *f, struct bb *bb)
+{
+	struct param *pm;
+	struct bb *succ;
+	struct ir *ir;
+	int e, i;
+
+	for (i = 0, ir = bb->ir; i < bb->nr_ir; i++, ir = ir->next) {
+		if (ir->op == IR_PHI) {
+			ir->dst.sub = new_name(ir->dst.v);
+			continue;
+		}
+
+		if (ir->o1.type == IRO_TEMP)
+			ir->o1.sub = stack[ir->o1.v][pos[ir->o1.v] - 1];
+		if (ir->o2.type == IRO_TEMP)
+			ir->o2.sub = stack[ir->o2.v][pos[ir->o2.v] - 1];
+		if (ir->op == IR_CALL)
+			for (pm = (struct param *)ir->o2.v; pm; pm = pm->next)
+				pm->sub = stack[pm->val][pos[pm->val] - 1];
+		if (ir->dst.type != IRO_TEMP || (ir->op >= IR_STORE && ir->op
+		    <= IR_STORE8))
+			continue;
+		ir->dst.sub = new_name(ir->dst.v);
+	}
+
+	FOREACH_SUCC(f, bb, e, succ)
+		for (i = 0, ir = succ->ir; i < succ->nr_ir && ir->op == IR_PHI;
+		    i++, ir = ir->next)
+			fill_phi(ir);
+
+	for (i = bb->domsucc; i != -1; i = f->bb[i].domsib)
+		ssa_rename(f, &f->bb[i]);
+
+	for (i = 0, ir = bb->ir; i < bb->nr_ir; i++, ir = ir->next) {
+		if (ir->op == IR_PHI) {
+			pos[ir->dst.v]--;
+			continue;
+		}
+		if (ir->dst.type != IRO_TEMP || (ir->op >= IR_STORE && ir->op
+		    <= IR_STORE8))
+			pos[ir->dst.v]--;
+	}
 }
 
 void
@@ -91,8 +175,11 @@ make_ssa(struct func *f)
 		}
 	}
 
+	ssa_rename(f, &f->bb[0]);
+
 	int j;
 	struct ir *_ir;
+
 	for (i = 0; i < f->nr_bbs; i++) {
 		printf("%d: \n", f->bb[i].n);
 		for (j = 0, _ir = f->bb[i].ir; j < f->bb[i].nr_ir; j++,
@@ -100,4 +187,3 @@ make_ssa(struct func *f)
 			dump_ir_op(stdout, _ir);
 	}
 }
-
