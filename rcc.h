@@ -159,7 +159,6 @@ enum {
 	IRO_TEMP,
 	IRO_GLOBAL,
 	IRO_LABEL,
-	IRO_NAME,
 	IRO_MISC,
 };
 
@@ -200,6 +199,7 @@ enum ir_op {
 	IR_JUMP,
 	IR_LABEL,
 	IR_CALL,
+	IR_ALLOC,
 	IR_PHI,
 	NR_IR_OPS,
 };

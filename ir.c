@@ -6,10 +6,18 @@
 
 #include "rcc.h"
 
+int _is_alloc[1000];
+
 struct ir *head_ir;
 struct ir *last_ir;
 
 static int gen_ir_op(struct node *n);
+
+static int
+is_alloc(int temp)
+{
+	return (_is_alloc[temp]);
+}
 
 static int
 _sizeof(struct type *t)
@@ -50,7 +58,7 @@ new_ir(int op, struct ir_oprnd *o1, struct ir_oprnd *o2, struct ir_oprnd *dst)
 static int cur_reg = 1;
 
 static int
-alloc_reg(void)
+alloc_temp(void)
 {
 	return cur_reg++;
 }
@@ -64,11 +72,29 @@ ir_enter(int off, struct param *p)
 }
 
 static void
+ir_alloc(int size, int temp)
+{
+	struct ir_oprnd o1 = { size, IRO_IMM }, dst = { temp, IRO_TEMP };
+
+	_is_alloc[temp] = 1;
+	new_ir(IR_ALLOC, &o1, NULL, &dst);
+}
+
+static void
 ir_kill(int _o1)
 {
 	struct ir_oprnd o1 = { _o1, IRO_TEMP };
 
-	new_ir(IR_KILL, &o1, NULL, NULL);
+	if (!is_alloc(_o1))
+		new_ir(IR_KILL, &o1, NULL, NULL);
+}
+
+static void
+ir_mov(int _o1, int _dst)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, dst = { _dst, IRO_TEMP };
+
+	new_ir(IR_MOV, &o1, NULL, &dst);
 }
 
 static void
@@ -303,7 +329,7 @@ gen_lor(struct node *n)
 {
 	int dst, f, l, next, out, r, t;
 
-	dst = alloc_reg();
+	dst = alloc_temp();
 	next = new_label();
 	out = new_label();
 	t = new_label();
@@ -332,7 +358,7 @@ gen_land(struct node *n)
 {
 	int dst, f, l, next, out, r, t;
 
-	dst = alloc_reg();
+	dst = alloc_temp();
 	next = new_label();
 	out = new_label();
 	t = new_label();
@@ -365,19 +391,15 @@ gen_lval(struct node *n)
 	case N_DEREF:
 		return (gen_ir_op(n->l));
 	case N_SYM:
-		dst = alloc_reg();
 		if (n->sym->global)
-			ir_loadg(n->sym, dst);
+			ir_loadg(n->sym, alloc_temp());
 		else {
-			tmp = alloc_reg();
-			ir_loadi(n->sym->loc, tmp);
-			ir3(IR_ADD, tmp, RARP, dst);
-			ir_kill(tmp);
+			assert(n->sym->loc);
+			return (n->sym->loc);
 		}
-		return (dst);
 	case N_FIELD:
 		tmp = gen_lval(n->l);
-		dst = alloc_reg();
+		dst = alloc_temp();
 		ir_loadi(((struct struct_field *)n->r)->off, dst);
 		ir3(IR_ADD, dst, tmp, dst);
 		ir_kill(tmp);
@@ -414,12 +436,12 @@ gen_ir_op(struct node *n)
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		if (n->l->type->ptr) {
-			tmp = alloc_reg();
+			tmp = alloc_temp();
 			ir_loadi(_sizeof(n->l->type->ptr), tmp);
 			ir3(IR_MUL, tmp, r, r);
 			ir_kill(tmp);
 		}
-		dst = alloc_reg();
+		dst = alloc_temp();
 		ir3(op, l, r, dst);
 		ir_kill(l);
 		ir_kill(r);
@@ -441,66 +463,63 @@ gen_ir_op(struct node *n)
 			op = IR_XOR;
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
-		dst = alloc_reg();
+		dst = alloc_temp();
 		ir3(op, l, r, dst);
 		ir_kill(l);
 		ir_kill(r);
 		return (dst);
 	case N_NOT:
-		dst = alloc_reg();
+		dst = alloc_temp();
 		l = gen_ir_op(n->l);
 		ir_not(l, dst);
 		ir_kill(l);
 		return (dst);
 	case N_ADDR:
-		dst = alloc_reg();
+		dst = alloc_temp();
 		if (n->l->sym->global)
 			ir_loadg(n->l->sym, dst);
 		else {
-			tmp = alloc_reg();
-			ir_loadi(n->l->sym->loc, tmp);
-			ir3(IR_ADD, tmp, RARP, dst);
-			ir_kill(tmp);
+			assert(n->l->sym->loc);
+			return (n->l->sym->loc);
 		}
 		return (dst);
 	case N_DEREF:
 		l = gen_ir_op(n->l);
-		dst = alloc_reg();
+		dst = alloc_temp();
 		ir_load(l, dst, _sizeof(n->type));
 		ir_kill(l);
 		return (dst);
 	case N_CONSTANT:
-		dst = alloc_reg();
+		dst = alloc_temp();
 		ir_loadi(n->val, dst);
 		return (dst);
 	case N_SYM:
-		dst = alloc_reg();
 		if (n->type->array) {
-			if (n->sym->global)
+			if (n->sym->global) {
+				dst = alloc_temp();
 				ir_loadg(n->sym, dst);
-			else {
-				tmp = alloc_reg();
-				ir_loadi(n->sym->loc, tmp);
-				ir3(IR_ADD, tmp, RARP, dst);
-				ir_kill(tmp);
+				return (dst);
+			} else {
+				assert(n->l->sym->loc);
+				return (n->sym->loc);
 			}
-			return (dst);
 		}
-		tmp = alloc_reg();
 		if (n->sym->global) {
+			dst = alloc_temp();
+			tmp = alloc_temp();
 			ir_loadg(n->sym, tmp);
 			ir_load(tmp, dst, _sizeof(n->type));
-		} else {
-			ir_loadi(n->sym->loc, tmp);
-			ir_loado(RARP, tmp, dst, _sizeof(n->type));
 			ir_kill(tmp);
+			return (dst);
+		} else {
+			assert(n->sym->loc);
+			return (n->sym->loc);
 		}
-		return (dst);
 	case N_FIELD:
 		f = (struct struct_field *)n->r;
 		l = gen_lval(n->l);
-		dst = alloc_reg();
-		tmp = alloc_reg();
+		dst = alloc_temp();
+		tmp = alloc_temp();
 		ir_loadi(f->off, tmp);
 		ir3(IR_ADD, l, tmp, dst);
 		ir_kill(l);
@@ -510,7 +529,10 @@ gen_ir_op(struct node *n)
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
 		tmp = gen_lval(n->l);
-		ir_store(r, tmp, _sizeof(n->l->type));
+		if (is_alloc(r))
+			ir_store(r, tmp, _sizeof(n->l->type));
+		else
+			ir_mov(r, tmp);
 		ir_kill(tmp);
 		return (r);
 	case N_MULTIPLE:
@@ -521,7 +543,7 @@ gen_ir_op(struct node *n)
 		}
 		return (-1);
 	case N_CALL:
-		dst = alloc_reg();
+		dst = alloc_temp();
 		assert(n->l->op == N_SYM);
 		for (p = n->params; p; p = p->next)
 			 p->val = gen_ir_op(p->n);
@@ -553,7 +575,7 @@ gen_ir_op(struct node *n)
 			op = IR_GT;
 		else if (n->op == N_GE)
 			op = IR_GE;
-		dst = alloc_reg();
+		dst = alloc_temp();
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		ir3(op, l, r, dst);
@@ -576,8 +598,8 @@ gen_ir_op(struct node *n)
 		ir_jump((long)n->l);
 		return (-1);
 	case N_COMMA:
-		dst = alloc_reg();
-		tmp = alloc_reg();
+		dst = alloc_temp();
+		tmp = alloc_temp();
 		dst = gen_ir_op(n->l);
 		tmp = gen_ir_op(n->r);
 		ir_kill(tmp);
@@ -591,8 +613,8 @@ gen_ir_op(struct node *n)
 void
 gen_ir(void)
 {
-	struct symbol *s;
-	int i;
+	struct symbol *s, *t;
+	int i, j;
 
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		s = symtab->tab[i];
@@ -601,6 +623,12 @@ gen_ir(void)
 			last_ir = NULL;
 			cur_reg = 1;
 			ir_enter(s->tab->ar_offset, s->params);
+			for (j = 0; j < SYMTAB_SIZE; j++) {
+				if ((t = s->tab->tab[j]) != NULL) {
+					t->loc = alloc_temp();
+					ir_alloc(t->type->stacksize, t->loc);
+				}
+			}
 			gen_ir_op(s->body);
 			s->ir = head_ir;
 			s->nr_temps = cur_reg;
@@ -639,6 +667,7 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_JUMP] = "JUMP",
     [IR_LABEL] = "LABEL",
     [IR_CALL] = "CALL",
+    [IR_ALLOC] = "ALLOC",
     [IR_PHI] = "PHI",
 };
 

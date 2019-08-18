@@ -136,7 +136,6 @@ add_sym(char *name, struct type *type)
 	s = malloc(sizeof(struct symbol));
 	memset(s, 0, sizeof(struct symbol));
 	s->name = name;
-	s->loc = symtab->ar_offset;
 	s->tab = symtab;
 	s->type = type;
 	if (symtab == &l0_symtab)

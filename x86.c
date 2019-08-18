@@ -134,7 +134,7 @@ emit_x86_op(struct ir *ir)
 {
 	struct param *p;
 	char *instr;
-	int i, off;
+	int i;
 
 	emit_no_nl("# ");
 	dump_ir_op(out, ir);
@@ -312,17 +312,9 @@ emit_x86_op(struct ir *ir)
 		kill_all();
 		emit("pushq %%rbp");
 		emit("movq %%rsp, %%rbp");
-		emit("subq $%d, %%rsp", ir->o1);
-		p = (struct param *)ir->o2.v;
-		off = i = 0;
-		while (p) {
-			if (i < NR_FUNC_PARAM_REGS)
-				emit("mov %%%s, %d(%%rsp)",
-				    func_param_reg(i, p->sym->type->size), off);
-			i++;
-			off += p->sym->type->size;
-			p = p->next;
-		}
+		break;
+	case IR_ALLOC:
+		emit("subq $%d, %%rsp", ir->o1.v);
 		break;
 	case IR_RET:
 		emit("movq %%%s, %%rax", x86_reg(&ir->o1, 8));
