@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <err.h>
+#include <assert.h>
 
 #include "rcc.h"
 
@@ -83,41 +84,49 @@ next_x86_reg(void)
 }
 
 static char *
-x86_reg(int ireg, int size)
+x86_reg(struct ir_oprnd *ireg, int size)
 {
-	if (ireg && !ir_regs[ireg])
-		ir_regs[ireg] = next_x86_reg();
+	assert(ireg->type == IRO_TEMP);
+
+	if (ireg->v && !ir_regs[ireg->v])
+		ir_regs[ireg->v] = next_x86_reg();
 
 	if (size == 1)
-		return (x86_8_regs_names[ir_regs[ireg]]);
+		return (x86_8_regs_names[ir_regs[ireg->v]]);
 	else if (size == 2)
-		return (x86_16_regs_names[ir_regs[ireg]]);
+		return (x86_16_regs_names[ir_regs[ireg->v]]);
 	else if (size == 4)
-		return (x86_32_regs_names[ir_regs[ireg]]);
+		return (x86_32_regs_names[ir_regs[ireg->v]]);
 	else
-		return (x86_regs_names[ir_regs[ireg]]);
+		return (x86_regs_names[ir_regs[ireg->v]]);
 }
 
 static void
-kill_reg(int ireg)
+kill_reg(struct ir_oprnd *ireg)
 {
 	int x;
 
-	x = ir_regs[ireg];
+	assert(ireg->type == IRO_TEMP);
+
+	x = ir_regs[ireg->v];
 	if (x == 0)
-		errx(1, "Kill on free register %d\n", ireg);
+		errx(1, "Kill on free register %ld\n", ireg->v);
 	x86_regs[x] = 0;
-	ir_regs[ireg] = 0;
+	ir_regs[ireg->v] = 0;
 }
 
 static void
 kill_all(void)
 {
+	struct ir_oprnd o;
 	int i;
 
-	for (i = 0; i < MAX_IR_REGS; i++)
+	o.type = IRO_TEMP;
+	for (i = 0; i < MAX_IR_REGS; i++) {
+		o.v = i;
 		if (ir_regs[i])
-			kill_reg(i);
+			kill_reg(&o);
+	}
 }
 
 static void
@@ -132,84 +141,84 @@ emit_x86_op(struct ir *ir)
 
 	switch (ir->op) {
 	case IR_LOADI:
-		emit("movq $%ld, %%%s", ir->o1, x86_reg(ir->dst, 8));
+		emit("movq $%ld, %%%s", ir->o1.v, x86_reg(&ir->dst, 8));
 		break;
 	case IR_LOADG:
-		emit("leaq %s(%%rip), %%%s", (char *)ir->o1,
-		    x86_reg(ir->dst, 8));
+		emit("leaq %s(%%rip), %%%s", (char *)ir->o1.v,
+		    x86_reg(&ir->dst, 8));
 		break;
 	case IR_LOAD:
-		emit("movq (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		emit("movq (%%%s), %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
 		    8));
 		break;
 	case IR_LOAD32:
-		emit("movl (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		emit("movl (%%%s), %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
 		    4));
 		break;
 	case IR_LOAD8:
-		emit("movb (%%%s), %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		emit("movb (%%%s), %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
 		    1));
 		break;
 	case IR_LOADO:
-		emit("movq 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 8));
+		emit("movq 0(%%%s,%%%s,1), %%%s", x86_reg(&ir->o1, 8),
+		    x86_reg(&ir->o2, 8), x86_reg(&ir->dst, 8));
 		break;
 	case IR_LOADO32:
-		emit("movl 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 4));
+		emit("movl 0(%%%s,%%%s,1), %%%s", x86_reg(&ir->o1, 8),
+		    x86_reg(&ir->o2, 8), x86_reg(&ir->dst, 4));
 		break;
 	case IR_LOADO8:
-		emit("movb 0(%%%s,%%%s,1), %%%s", x86_reg(ir->o1, 8),
-		    x86_reg(ir->o2, 8), x86_reg(ir->dst, 1));
+		emit("movb 0(%%%s,%%%s,1), %%%s", x86_reg(&ir->o1, 8),
+		    x86_reg(&ir->o2, 8), x86_reg(&ir->dst, 1));
 		break;
 	case IR_STORE:
-		emit("movq %%%s, (%%%s)", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+		emit("movq %%%s, (%%%s)", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
 		    8));
 		break;
 	case IR_STORE32:
-		emit("movl %%%s, (%%%s)", x86_reg(ir->o1, 4), x86_reg(ir->dst,
+		emit("movl %%%s, (%%%s)", x86_reg(&ir->o1, 4), x86_reg(&ir->dst,
 		    8));
 		break;
 	case IR_STORE8:
-		emit("movb %%%s, (%%%s)", x86_reg(ir->o1, 1), x86_reg(ir->dst,
+		emit("movb %%%s, (%%%s)", x86_reg(&ir->o1, 1), x86_reg(&ir->dst,
 		    8));
 		break;
 	case IR_KILL:
-		kill_reg(ir->o1);
+		kill_reg(&ir->o1);
 		break;
 	case IR_ADD:
 	case IR_SUB:
 		if (ir->op == IR_SUB)
-			emit("negq %%%s", x86_reg(ir->o2, 8));
-		emit("leaq (%%%s, %%%s), %%%s", x86_reg(ir->o2, 8),
-		    x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
+			emit("negq %%%s", x86_reg(&ir->o2, 8));
+		emit("leaq (%%%s, %%%s), %%%s", x86_reg(&ir->o2, 8),
+		    x86_reg(&ir->o1, 8), x86_reg(&ir->dst, 8));
 		break;
 	case IR_MUL:
-		if (ir->next->op !=  IR_KILL || ir->next->o1 != ir->o1)
-			emit("pushq %%%s", x86_reg(ir->o1, 8));
+		if (ir->next->op !=  IR_KILL || ir->next->o1.v != ir->o1.v)
+			emit("pushq %%%s", x86_reg(&ir->o1, 8));
 		if (ir->op == IR_MUL)
-			emit("imulq %%%s, %%%s", x86_reg(ir->o2, 8),
-			    x86_reg(ir->o1, 8));
-		emit("movq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst,
+			emit("imulq %%%s, %%%s", x86_reg(&ir->o2, 8),
+			    x86_reg(&ir->o1, 8));
+		emit("movq %%%s, %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
 		    8));
-		if (ir->next->op !=  IR_KILL || ir->next->o1 != ir->o1)
-			emit("popq %%%s", x86_reg(ir->o1, 8));
+		if (ir->next->op !=  IR_KILL || ir->next->o1.v != ir->o1.v)
+			emit("popq %%%s", x86_reg(&ir->o1, 8));
 		break;
 	case IR_DIV:
 		emit("pushq %%rax");
 		emit("pushq %%rdx");
-		if (ir_regs[ir->o2] == RAX) {
-			emit("xchg %%%s, %%rax", x86_reg(ir->o1, 8));
+		if (ir_regs[ir->o2.v] == RAX) {
+			emit("xchg %%%s, %%rax", x86_reg(&ir->o1, 8));
 			emit("xorl %%edx,%%edx");
-			emit("idivq %%%s", x86_reg(ir->o1, 8));
+			emit("idivq %%%s", x86_reg(&ir->o1, 8));
 		} else {
-			emit("movq %%%s,%%rax", x86_reg(ir->o1, 8));
+			emit("movq %%%s,%%rax", x86_reg(&ir->o1, 8));
 			emit("xorl %%edx,%%edx");
-			emit("idivq %%%s", x86_reg(ir->o2, 8));
+			emit("idivq %%%s", x86_reg(&ir->o2, 8));
 		}
 		emit("popq %%rdx");
-		emit("movq %%rax, %%%s", x86_reg(ir->dst, 8));
-		if (ir_regs[ir->dst] != RAX)
+		emit("movq %%rax, %%%s", x86_reg(&ir->dst, 8));
+		if (ir_regs[ir->dst.v] != RAX)
 			emit("popq %%rax");
 		break;
 	case IR_OR:
@@ -221,19 +230,19 @@ emit_x86_op(struct ir *ir)
 			instr = "andq";
 		else if (ir->op == IR_XOR)
 			instr = "xorq";
-		emit("pushq %%%s", x86_reg(ir->o2, 8));
-		emit("%s %%%s, %%%s", instr, x86_reg(ir->o1, 8),
-		    x86_reg(ir->o2, 8));
-		emit("movq %%%s, %%%s", x86_reg(ir->o2, 8), x86_reg(ir->dst,
+		emit("pushq %%%s", x86_reg(&ir->o2, 8));
+		emit("%s %%%s, %%%s", instr, x86_reg(&ir->o1, 8),
+		    x86_reg(&ir->o2, 8));
+		emit("movq %%%s, %%%s", x86_reg(&ir->o2, 8), x86_reg(&ir->dst,
 		    8));
-		emit("popq %%%s", x86_reg(ir->o2, 8));
+		emit("popq %%%s", x86_reg(&ir->o2, 8));
 		break;
 	case IR_NOT:
-		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,
+		emit("testq %%%s, %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->o1,
 		    8));
-		emit("seteb %%%s", x86_reg(ir->dst, 1));
-		emit("movzbq %%%s, %%%s", x86_reg(ir->dst, 1), x86_reg(ir->dst,
-		    8));
+		emit("seteb %%%s", x86_reg(&ir->dst, 1));
+		emit("movzbq %%%s, %%%s", x86_reg(&ir->dst, 1),
+		    x86_reg(&ir->dst, 8));
 		break;
 	case IR_NE:
 	case IR_EQ:
@@ -241,58 +250,62 @@ emit_x86_op(struct ir *ir)
 	case IR_LE:
 	case IR_GT:
 	case IR_GE:
-		emit("xorl %%%s,%%%s", x86_reg(ir->dst, 4), x86_reg(ir->dst,
+		emit("xorl %%%s,%%%s", x86_reg(&ir->dst, 4), x86_reg(&ir->dst,
 		    4));
-		emit("cmpq %%%s,%%%s", x86_reg(ir->o2, 8), x86_reg(ir->o1, 8));
+		emit("cmpq %%%s,%%%s", x86_reg(&ir->o2, 8), x86_reg(&ir->o1,
+		    8));
 		if (ir->op == IR_EQ)
-			emit("sete %%%s", x86_reg(ir->dst, 1));
+			emit("sete %%%s", x86_reg(&ir->dst, 1));
 		else if (ir->op == IR_NE)
-			emit("setne %%%s", x86_reg(ir->dst, 1));
+			emit("setne %%%s", x86_reg(&ir->dst, 1));
 		else if (ir->op == IR_LT)
-			emit("setl %%%s", x86_reg(ir->dst, 1));
+			emit("setl %%%s", x86_reg(&ir->dst, 1));
 		else if (ir->op == IR_LE)
-			emit("setle %%%s", x86_reg(ir->dst, 1));
+			emit("setle %%%s", x86_reg(&ir->dst, 1));
 		else if (ir->op == IR_GT)
-			emit("setg %%%s", x86_reg(ir->dst, 1));
+			emit("setg %%%s", x86_reg(&ir->dst, 1));
 		else if (ir->op == IR_GE)
-			emit("setge %%%s", x86_reg(ir->dst, 1));
+			emit("setge %%%s", x86_reg(&ir->dst, 1));
 		break;
 	case IR_CBR:
-		emit("testq %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->o1,
+		emit("testq %%%s, %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->o1,
 		    8));
-		emit("jne .L%d", ir->o2);
-		emit("je .L%d", ir->dst);
+		emit("jne .L%d", ir->o2.v);
+		emit("je .L%d", ir->dst.v);
 		break;
 	case IR_JUMP:
-		emit("jmp .L%d", ir->dst);
+		emit("jmp .L%d", ir->dst.v);
 		break;
 	case IR_LABEL:
-		emit(".L%d:", ir->o1);
+		emit(".L%d:", ir->o1.v);
 		break;
 	case IR_MOV:
-		emit("mov %%%s, %%%s", x86_reg(ir->o1, 8), x86_reg(ir->dst, 8));
+		emit("mov %%%s, %%%s", x86_reg(&ir->o1, 8), x86_reg(&ir->dst,
+		    8));
 		break;
 	case IR_CALL:
 		for (i = 1; i < MAX_IR_REGS; i++)
-			if (ir_regs[i] && i != ir->dst)
+			if (ir_regs[i] && i != ir->dst.v)
 				emit("pushq %%%s", x86_regs_names[ir_regs[i]]);
-		p = (struct param *)ir->o2;
+		p = (struct param *)ir->o2.v;
 		i = 0;
 		while (p) {
 			int size;
 
 			size = p->n->type->size;
 			/* XXX more than 6 params */
-			if (i < NR_FUNC_PARAM_REGS)
-				emit("mov %%%s, %%%s", x86_reg(p->val, size),
+			if (i < NR_FUNC_PARAM_REGS) {
+				struct ir_oprnd o = { p->val, IRO_TEMP };
+				emit("mov %%%s, %%%s", x86_reg(&o, size),
 				    func_param_reg(i++, size));
+			}
 			p = p->next;
 		}
 		emit("xorl %%eax, %%eax");
-		emit("callq %s", ((struct symbol *)ir->o1)->name);
-		emit("movq %%rax, %%%s", x86_reg(ir->dst, 8));
+		emit("callq %s", ((struct symbol *)ir->o1.v)->name);
+		emit("movq %%rax, %%%s", x86_reg(&ir->dst, 8));
 		for (i = MAX_IR_REGS; i >= 1; i--)
-			if (ir_regs[i] && i != ir->dst)
+			if (ir_regs[i] && i != ir->dst.v)
 				emit("popq %%%s", x86_regs_names[ir_regs[i]]);
 		break;
 	case IR_ENTER:
@@ -300,7 +313,7 @@ emit_x86_op(struct ir *ir)
 		emit("pushq %%rbp");
 		emit("movq %%rsp, %%rbp");
 		emit("subq $%d, %%rsp", ir->o1);
-		p = (struct param *)ir->o2;
+		p = (struct param *)ir->o2.v;
 		off = i = 0;
 		while (p) {
 			if (i < NR_FUNC_PARAM_REGS)
@@ -312,7 +325,7 @@ emit_x86_op(struct ir *ir)
 		}
 		break;
 	case IR_RET:
-		emit("movq %%%s, %%rax", x86_reg(ir->o1, 8));
+		emit("movq %%%s, %%rax", x86_reg(&ir->o1, 8));
 		emit("leaveq");
 		emit("retq");
 		break;

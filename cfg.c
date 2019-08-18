@@ -127,7 +127,7 @@ make_cfg(struct symbol *s)
 	for (i = 1, ir = ir->next; ir; ir = ir->next, i++) {
 		if (ir->op == IR_LABEL) {
 			leader[next] = ir;
-			add_node(next++, ir->o1, ir);
+			add_node(next++, ir->o1.v, ir);
 		}
 	}
 
@@ -145,10 +145,10 @@ make_cfg(struct symbol *s)
 		last[i] = p;
 		bb[i].nr_ir = nr;
 		if (p->op == IR_CBR) {
-			add_edge(i, find_node(p->o2));
-			add_edge(i, find_node(p->dst));
+			add_edge(i, find_node(p->o2.v));
+			add_edge(i, find_node(p->dst.v));
 		} else if (p->op == IR_JUMP)
-			add_edge(i, find_node(p->dst));
+			add_edge(i, find_node(p->dst.v));
 	}
 }
 
@@ -240,9 +240,11 @@ get_rpo(int n, int po)
 static void
 add_phi(struct bb *bb, int name)
 {
+	struct ir_oprnd dst = { name, IRO_TEMP };
+
 	printf("adding phi for %d to bb %d\n", name, bb->n);
 	last_ir = NULL;
-	new_ir(IR_PHI, 0, 0, name);
+	new_ir(IR_PHI, NULL, NULL, &dst);
 	last_ir->next = bb->ir;
 	bb->ir = last_ir;
 }
@@ -255,7 +257,7 @@ has_phi(struct bb *bb, int name)
 
 	for (i = 0, ir = bb->ir; i < bb->nr_ir && ir->op == IR_PHI; i++, ir =
 	    ir->next)
-		if (ir->dst == name)
+		if (ir->dst.type == IRO_TEMP && ir->dst.v == name)
 			return (1);
 	return (0);
 }
@@ -277,23 +279,18 @@ get_live(struct symbol *sym)
 	for (i = 0; i < nr_nodes; i++) {
 		for (n = 0, ir = bb[i].ir; n < bb[i].nr_ir; n++, ir =
 		    ir->next) {
-			if (ir->op <= IR_GE) {
-				printf("2 operands ");
-				if (!set_set(varkill, ir->o1))
-					set_add(globals, ir->o1);
-				if (!set_set(varkill, ir->o2))
-					set_add(globals, ir->o2);
-			} else if (ir->op <= IR_STORE8) {
-				printf("1 operand ");
-				if (!set_set(varkill, ir->o1))
-					set_add(globals, ir->o1);
-			}
-			if (ir->op > IR_LOADG)
+			if (ir->o1.type == IRO_TEMP && !set_set(varkill,
+			    ir->o1.v))
+				set_add(globals, ir->o1.v);
+			if (ir->o2.type == IRO_TEMP && !set_set(varkill,
+			    ir->o2.v))
+				set_add(globals, ir->o2.v);
+			if (ir->dst.type != IRO_TEMP)
 				continue;
-			set_add(varkill, ir->dst);
+			set_add(varkill, ir->dst.v);
 			dump_ir_op(stdout, ir);
-			printf("adding %d to block(%ld)\n", i, ir->dst);
-			set_add(blocks[ir->dst], i);
+			printf("adding %d to block(%ld)\n", i, ir->dst.v);
+			set_add(blocks[ir->dst.v], i);
 		}
 	}
 

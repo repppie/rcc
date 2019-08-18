@@ -23,7 +23,7 @@ _sizeof(struct type *t)
 }
 
 struct ir *
-new_ir(int op, long o1, long o2, long dst)
+new_ir(int op, struct ir_oprnd *o1, struct ir_oprnd *o2, struct ir_oprnd *dst)
 {
 	struct ir *ir;
 
@@ -35,9 +35,12 @@ new_ir(int op, long o1, long o2, long dst)
 		last_ir->next = ir;
 	last_ir = ir;
 	ir->op = op;
-	ir->o1 = o1;
-	ir->o2 = o2;
-	ir->dst = dst;
+	if (o1)
+		ir->o1 = *o1;
+	if (o2)
+		ir->o2 = *o2;
+	if (dst)
+		ir->dst = *dst;
 
 	return (ir);
 }
@@ -53,17 +56,35 @@ alloc_reg(void)
 }
 
 static void
-ir_load(long o1, long dst, int size)
+ir_enter(int off, struct param *p)
 {
+	struct ir_oprnd o1 = { off, IRO_IMM }, o2 = { (long)p, IRO_MISC };
+
+	new_ir(IR_ENTER, &o1, &o2, NULL);
+}
+
+static void
+ir_kill(int _o1)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP };
+
+	new_ir(IR_KILL, &o1, NULL, NULL);
+}
+
+static void
+ir_load(int _o1, int _dst, int size)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, dst = { _dst, IRO_TEMP };
+
 	switch (size) {
 	case 8:
-		new_ir(IR_LOAD, o1, 0, dst);
+		new_ir(IR_LOAD, &o1, NULL, &dst);
 		break;
 	case 4:
-		new_ir(IR_LOAD32, o1, 0, dst);
+		new_ir(IR_LOAD32, &o1, NULL, &dst);
 		break;
 	case 1:
-		new_ir(IR_LOAD8, o1, 0, dst);
+		new_ir(IR_LOAD8, &o1, NULL, &dst);
 		break;
 	default:
 		errx(1, "Invalid load size %d", size);
@@ -71,17 +92,20 @@ ir_load(long o1, long dst, int size)
 }
 
 static void
-ir_loado(long o1, long o2, long dst, int size)
+ir_loado(int _o1, int _o2, int _dst, int size)
 {
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, o2 = { _o2, IRO_TEMP }, dst =
+	    { _dst, IRO_TEMP };
+
 	switch (size) {
 	case 8:
-		new_ir(IR_LOADO, o1, o2, dst);
+		new_ir(IR_LOADO, &o1, &o2, &dst);
 		break;
 	case 4:
-		new_ir(IR_LOADO32, o1, o2, dst);
+		new_ir(IR_LOADO32, &o1, &o2, &dst);
 		break;
 	case 1:
-		new_ir(IR_LOADO8, o1, o2, dst);
+		new_ir(IR_LOADO8, &o1, &o2, &dst);
 		break;
 	default:
 		errx(1, "Invalid load size %d", size);
@@ -89,21 +113,99 @@ ir_loado(long o1, long o2, long dst, int size)
 }
 
 static void
-ir_store(long o1, long dst, int size)
+ir_store(int _o1, int _dst, int size)
 {
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, dst = { _dst, IRO_TEMP };
+
 	switch (size) {
 	case 8:
-		new_ir(IR_STORE, o1, 0, dst);
+		new_ir(IR_STORE, &o1, NULL, &dst);
 		break;
 	case 4:
-		new_ir(IR_STORE32, o1, 0, dst);
+		new_ir(IR_STORE32, &o1, NULL, &dst);
 		break;
 	case 1:
-		new_ir(IR_STORE8, o1, 0, dst);
+		new_ir(IR_STORE8, &o1, NULL, &dst);
 		break;
 	default:
 		errx(1, "Invalid store size %d", size);
 	}
+}
+
+static void
+ir_loadi(int imm, int _dst)
+{
+	struct ir_oprnd o1 = { imm, IRO_IMM }, dst = { _dst, IRO_TEMP };
+
+	new_ir(IR_LOADI, &o1, NULL, &dst);
+}
+
+static void
+ir_loadg(struct symbol *s, int _dst)
+{
+	struct ir_oprnd o1 = { (long)s->name, IRO_GLOBAL }, dst = { _dst,
+	    IRO_TEMP };
+
+	new_ir(IR_LOADG, &o1, NULL, &dst);
+}
+
+static void
+ir_cbr(int cond, int taken, int not)
+{
+	struct ir_oprnd c = { cond, IRO_TEMP }, n = { not, IRO_LABEL }, t =
+	    { taken, IRO_LABEL };
+
+	new_ir(IR_CBR, &c, &t, &n); 
+}
+
+static void
+ir_jump(int l)
+{
+	struct ir_oprnd t = { l, IRO_LABEL };
+
+	new_ir(IR_JUMP, NULL, NULL, &t);
+}
+
+static void
+ir_not(int _o1, int _dst)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, dst = { _dst, IRO_TEMP };
+
+	new_ir(IR_NOT, &o1, NULL, &dst);
+}
+
+static void
+ir_ret(int _o1)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP };
+
+	new_ir(IR_RET, &o1, NULL, NULL);
+}
+
+static void
+ir3(int op, int _o1, int _o2, int _dst)
+{
+	struct ir_oprnd o1 = { _o1, IRO_TEMP }, o2 = { _o2, IRO_TEMP },
+	    dst = { _dst, IRO_TEMP };
+
+	new_ir(op, &o1, &o2, &dst);
+}
+
+static void
+ir_call(struct symbol *s, struct param *p, int _dst)
+{
+	struct ir_oprnd o1 = { (long)s, IRO_GLOBAL }, o2 = { (long)p,
+	    IRO_MISC }, dst = { _dst, IRO_TEMP }; 
+
+	new_ir(IR_CALL, &o1, &o2, &dst);
+}
+
+static void
+ir_label(int l)
+{
+	struct ir_oprnd o1 = { l, IRO_LABEL };
+
+	new_ir(IR_LABEL, &o1, NULL, NULL);
 }
 
 static int
@@ -115,16 +217,16 @@ gen_if(struct node *n)
 	if_lbl = new_label();
 	else_lbl = new_label();
 	out_lbl = new_label();
-	new_ir(IR_CBR, cond, if_lbl, else_lbl);
-	new_ir(IR_KILL, cond, 0, 0);
-	new_ir(IR_LABEL, if_lbl, 0, 0);
+	ir_cbr(cond, if_lbl, else_lbl);
+	ir_kill(cond);
+	ir_label(if_lbl);
 	gen_ir_op(n->l);
-	new_ir(IR_JUMP, 0, 0, out_lbl);
-	new_ir(IR_LABEL, else_lbl, 0, 0);
+	ir_jump(out_lbl);
+	ir_label(else_lbl);
 	if (n->r)
 		gen_ir_op(n->r);
-	new_ir(IR_JUMP, 0, 0, out_lbl);
-	new_ir(IR_LABEL, out_lbl, 0, 0);
+	ir_jump(out_lbl);
+	ir_label(out_lbl);
 
 	return (-1);
 }
@@ -139,18 +241,18 @@ gen_for(struct node *n)
 	out = n->break_lbl;
 	next = n->cont_lbl;
 	gen_ir_op(n->pre);
-	new_ir(IR_JUMP, 0, 0, start);
-	new_ir(IR_LABEL, start, 0, 0);
+	ir_jump(start);
+	ir_label(start);
 	cond = gen_ir_op(n->cond);
-	new_ir(IR_CBR, cond, in, out);
-	new_ir(IR_KILL, cond, 0, 0);
-	new_ir(IR_LABEL, in, 0, 0);
+	ir_cbr(cond, in, out);
+	ir_kill(cond);
+	ir_label(in);
 	gen_ir_op(n->l);
-	new_ir(IR_JUMP, 0, 0, next);
-	new_ir(IR_LABEL, next, 0, 0);
+	ir_jump(next);
+	ir_label(next);
 	gen_ir_op(n->post);
-	new_ir(IR_JUMP, 0, 0, start);
-	new_ir(IR_LABEL, out, 0, 0);
+	ir_jump(start);
+	ir_label(out);
 
 	return (-1);
 }
@@ -163,15 +265,15 @@ gen_do(struct node *n)
 	start = new_label();
 	out = n->break_lbl;
 	next = n->cont_lbl;
-	new_ir(IR_JUMP, 0, 0, start);
-	new_ir(IR_LABEL, start, 0, 0);
+	ir_jump(start);
+	ir_label(start);
 	gen_ir_op(n->l);
-	new_ir(IR_JUMP, 0, 0, next);
-	new_ir(IR_LABEL, next, 0, 0);
+	ir_jump(next);
+	ir_label(next);
 	cond = gen_ir_op(n->cond);
-	new_ir(IR_CBR, cond, start, out);
-	new_ir(IR_KILL, cond, 0, 0);
-	new_ir(IR_LABEL, out, 0, 0);
+	ir_cbr(cond, start, out);
+	ir_kill(cond);
+	ir_label(out);
 	return (-1);
 }
 
@@ -183,15 +285,15 @@ gen_while(struct node *n)
 	start = n->cont_lbl;
 	in = new_label();
 	out = n->break_lbl;
-	new_ir(IR_JUMP, 0, 0, start);
-	new_ir(IR_LABEL, start, 0, 0);
+	ir_jump(start);
+	ir_label(start);
 	cond = gen_ir_op(n->cond);
-	new_ir(IR_CBR, cond, in, out);
-	new_ir(IR_KILL, cond, 0, 0);
-	new_ir(IR_LABEL, in, 0, 0);
+	ir_cbr(cond, in, out);
+	ir_kill(cond);
+	ir_label(in);
 	gen_ir_op(n->l);
-	new_ir(IR_JUMP, 0, 0, start);
-	new_ir(IR_LABEL, out, 0, 0);
+	ir_jump(start);
+	ir_label(out);
 
 	return (-1);
 }
@@ -208,19 +310,19 @@ gen_lor(struct node *n)
 	f = new_label();
 
 	l = gen_ir_op(n->l);
-	new_ir(IR_CBR, l, t, next);
-	new_ir(IR_LABEL, next, 0, 0);
+	ir_cbr(l, t, next);
+	ir_label(next);
 	r = gen_ir_op(n->r);
-	new_ir(IR_CBR, r, t, f);
-	new_ir(IR_LABEL, f, 0, 0);
-	new_ir(IR_LOADI, 0, 0, dst);
-	new_ir(IR_JUMP, 0, 0, out);
-	new_ir(IR_LABEL, t, 0, 0);
-	new_ir(IR_LOADI, 1, 0, dst);
-	new_ir(IR_JUMP, 0, 0, out);
-	new_ir(IR_LABEL, out, 0, 0);
-	new_ir(IR_KILL, l, 0, 0);
-	new_ir(IR_KILL, r, 0, 0);
+	ir_cbr(r, t, f);
+	ir_label(f);
+	ir_loadi(0, dst);
+	ir_jump(out);
+	ir_label(t);
+	ir_loadi(1, dst);
+	ir_jump(out);
+	ir_label(out);
+	ir_kill(l);
+	ir_kill(r);
 
 	return (dst);
 }
@@ -237,19 +339,19 @@ gen_land(struct node *n)
 	f = new_label();
 
 	l = gen_ir_op(n->l);
-	new_ir(IR_CBR, l, next, f);
-	new_ir(IR_LABEL, next, 0, 0);
+	ir_cbr(l, next, f);
+	ir_label(next);
 	r = gen_ir_op(n->r);
-	new_ir(IR_CBR, r, t, f);
-	new_ir(IR_LABEL, t, 0, 0);
-	new_ir(IR_LOADI, 1, 0, dst);
-	new_ir(IR_JUMP, 0, 0, out);
-	new_ir(IR_LABEL, f, 0, 0);
-	new_ir(IR_LOADI, 0, 0, dst);
-	new_ir(IR_JUMP, 0, 0, out);
-	new_ir(IR_LABEL, out, 0, 0);
-	new_ir(IR_KILL, l, 0, 0);
-	new_ir(IR_KILL, r, 0, 0);
+	ir_cbr(r, t, f);
+	ir_label(t);
+	ir_loadi(1, dst);
+	ir_jump(out);
+	ir_label(f);
+	ir_loadi(0, dst);
+	ir_jump(out);
+	ir_label(out);
+	ir_kill(l);
+	ir_kill(r);
 
 	return (dst);
 }
@@ -265,20 +367,20 @@ gen_lval(struct node *n)
 	case N_SYM:
 		dst = alloc_reg();
 		if (n->sym->global)
-			new_ir(IR_LOADG, (long)n->sym->name, 0, dst);
+			ir_loadg(n->sym, dst);
 		else {
 			tmp = alloc_reg();
-			new_ir(IR_LOADI, n->sym->loc, 0, tmp);
-			new_ir(IR_ADD, tmp, RARP, dst);
-			new_ir(IR_KILL, tmp, 0, 0);
+			ir_loadi(n->sym->loc, tmp);
+			ir3(IR_ADD, tmp, RARP, dst);
+			ir_kill(tmp);
 		}
 		return (dst);
 	case N_FIELD:
 		tmp = gen_lval(n->l);
 		dst = alloc_reg();
-		new_ir(IR_LOADI, ((struct struct_field *)n->r)->off, 0, dst);
-		new_ir(IR_ADD, dst, tmp, dst);
-		new_ir(IR_KILL, tmp, 0, 0);
+		ir_loadi(((struct struct_field *)n->r)->off, dst);
+		ir3(IR_ADD, dst, tmp, dst);
+		ir_kill(tmp);
 		return (dst);
 	default:
 		errx(1, "Invalid lvalue");
@@ -313,14 +415,14 @@ gen_ir_op(struct node *n)
 		r = gen_ir_op(n->r);
 		if (n->l->type->ptr) {
 			tmp = alloc_reg();
-			new_ir(IR_LOADI, _sizeof(n->l->type->ptr), 0, tmp);
-			new_ir(IR_MUL, tmp, r, r);
-			new_ir(IR_KILL, tmp, 0, 0);
+			ir_loadi(_sizeof(n->l->type->ptr), tmp);
+			ir3(IR_MUL, tmp, r, r);
+			ir_kill(tmp);
 		}
 		dst = alloc_reg();
-		new_ir(op, l, r, dst);
-		new_ir(IR_KILL, l, 0, 0);
-		new_ir(IR_KILL, r, 0, 0);
+		ir3(op, l, r, dst);
+		ir_kill(l);
+		ir_kill(r);
 		return (dst);
 	case N_MUL:
 	case N_DIV:
@@ -340,58 +442,58 @@ gen_ir_op(struct node *n)
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
 		dst = alloc_reg();
-		new_ir(op, l, r, dst);
-		new_ir(IR_KILL, l, 0, 0);
-		new_ir(IR_KILL, r, 0, 0);
+		ir3(op, l, r, dst);
+		ir_kill(l);
+		ir_kill(r);
 		return (dst);
 	case N_NOT:
 		dst = alloc_reg();
 		l = gen_ir_op(n->l);
-		new_ir(IR_NOT, l, 0, dst);
-		new_ir(IR_KILL, l, 0, 0);
+		ir_not(l, dst);
+		ir_kill(l);
 		return (dst);
 	case N_ADDR:
 		dst = alloc_reg();
 		if (n->l->sym->global)
-			new_ir(IR_LOADG, (long)n->l->sym->name, 0, dst);
+			ir_loadg(n->l->sym, dst);
 		else {
 			tmp = alloc_reg();
-			new_ir(IR_LOADI, n->l->sym->loc, 0, tmp);
-			new_ir(IR_ADD, tmp, RARP, dst);
-			new_ir(IR_KILL, tmp, 0, 0);
+			ir_loadi(n->l->sym->loc, tmp);
+			ir3(IR_ADD, tmp, RARP, dst);
+			ir_kill(tmp);
 		}
 		return (dst);
 	case N_DEREF:
 		l = gen_ir_op(n->l);
 		dst = alloc_reg();
 		ir_load(l, dst, _sizeof(n->type));
-		new_ir(IR_KILL, l, 0, 0);
+		ir_kill(l);
 		return (dst);
 	case N_CONSTANT:
 		dst = alloc_reg();
-		new_ir(IR_LOADI, n->val, 0, dst);
+		ir_loadi(n->val, dst);
 		return (dst);
 	case N_SYM:
 		dst = alloc_reg();
 		if (n->type->array) {
 			if (n->sym->global)
-				new_ir(IR_LOADG, (long)n->sym->name, 0, dst);
+				ir_loadg(n->sym, dst);
 			else {
 				tmp = alloc_reg();
-				new_ir(IR_LOADI, n->sym->loc, 0, tmp);
-				new_ir(IR_ADD, tmp, RARP, dst);
-				new_ir(IR_KILL, tmp, 0, 0);
+				ir_loadi(n->sym->loc, tmp);
+				ir3(IR_ADD, tmp, RARP, dst);
+				ir_kill(tmp);
 			}
 			return (dst);
 		}
 		tmp = alloc_reg();
 		if (n->sym->global) {
-			new_ir(IR_LOADG, (long)n->sym->name, 0, tmp);
+			ir_loadg(n->sym, tmp);
 			ir_load(tmp, dst, _sizeof(n->type));
 		} else {
-			new_ir(IR_LOADI, n->sym->loc, 0, tmp);
+			ir_loadi(n->sym->loc, tmp);
 			ir_loado(RARP, tmp, dst, _sizeof(n->type));
-			new_ir(IR_KILL, tmp, 0, 0);
+			ir_kill(tmp);
 		}
 		return (dst);
 	case N_FIELD:
@@ -399,23 +501,23 @@ gen_ir_op(struct node *n)
 		l = gen_lval(n->l);
 		dst = alloc_reg();
 		tmp = alloc_reg();
-		new_ir(IR_LOADI, f->off, 0, tmp);
-		new_ir(IR_ADD, l, tmp, dst);
-		new_ir(IR_KILL, l, 0, 0);
-		new_ir(IR_KILL, tmp, 0, 0);
+		ir_loadi(f->off, tmp);
+		ir3(IR_ADD, l, tmp, dst);
+		ir_kill(l);
+		ir_kill(tmp);
 		ir_load(dst, dst, _sizeof(f->type));
 		return (dst);
 	case N_ASSIGN:
 		r = gen_ir_op(n->r);
 		tmp = gen_lval(n->l);
 		ir_store(r, tmp, _sizeof(n->l->type));
-		new_ir(IR_KILL, tmp, 0, 0);
+		ir_kill(tmp);
 		return (r);
 	case N_MULTIPLE:
 		for (n = n->l; n; n = n->next) {
 			l = gen_ir_op(n);
 			if (l != -1)
-				new_ir(IR_KILL, l, 0, 0);
+				ir_kill(l);
 		}
 		return (-1);
 	case N_CALL:
@@ -423,15 +525,15 @@ gen_ir_op(struct node *n)
 		assert(n->l->op == N_SYM);
 		for (p = n->params; p; p = p->next)
 			 p->val = gen_ir_op(p->n);
-		new_ir(IR_CALL, (long)n->l->sym, (long)n->params, dst);
+		ir_call(n->l->sym, n->params, dst);
 		for (p = n->params; p; p = p->next)
-			new_ir(IR_KILL, p->val, 0, 0);
+			ir_kill(p->val);
 		return (dst);
 	case N_RETURN:
 		l = -1;
 		if (n->l)
 			l = gen_ir_op(n->l);
-		new_ir(IR_RET, l, 0, 0);
+		ir_ret(l);
 		return (-1);
 	case N_NE:
 	case N_EQ:
@@ -454,9 +556,9 @@ gen_ir_op(struct node *n)
 		dst = alloc_reg();
 		l = gen_ir_op(n->l);
 		r = gen_ir_op(n->r);
-		new_ir(op, l, r, dst);
-		new_ir(IR_KILL, l, 0, 0);
-		new_ir(IR_KILL, r, 0, 0);
+		ir3(op, l, r, dst);
+		ir_kill(l);
+		ir_kill(r);
 		return (dst);
 	case N_LOR:
 		return (gen_lor(n));
@@ -471,14 +573,14 @@ gen_ir_op(struct node *n)
 	case N_WHILE:
 		return (gen_while(n));
 	case N_GOTO:
-		new_ir(IR_JUMP, 0, 0, (long)n->l);
+		ir_jump((long)n->l);
 		return (-1);
 	case N_COMMA:
 		dst = alloc_reg();
 		tmp = alloc_reg();
 		dst = gen_ir_op(n->l);
 		tmp = gen_ir_op(n->r);
-		new_ir(IR_KILL, tmp, 0, 0);
+		ir_kill(tmp);
 		return (dst);
 	default:
 		errx(1, "Unknown node op %d", n->op);
@@ -498,7 +600,7 @@ gen_ir(void)
 			head_ir = NULL;
 			last_ir = NULL;
 			cur_reg = 1;
-			new_ir(IR_ENTER, s->tab->ar_offset, (long)s->params, 0);
+			ir_enter(s->tab->ar_offset, s->params);
 			gen_ir_op(s->body);
 			s->ir = head_ir;
 			s->nr_temps = cur_reg;
@@ -543,8 +645,8 @@ static char *ir_names[NR_IR_OPS] = {
 void
 dump_ir_op(FILE *f, struct ir *ir)
 {
-	fprintf(f, "%s %ld, %ld, %ld\n", ir_names[ir->op], ir->o1, ir->o2,
-	    ir->dst);
+	fprintf(f, "%s %ld, %ld, %ld\n", ir_names[ir->op], ir->o1.v, ir->o2.v,
+	    ir->dst.v);
 }
 
 void
@@ -553,6 +655,6 @@ dump_ir(struct ir *ir)
 	int i;
 	for (i = 0; ir; ir = ir->next, i++)
 		//dump_ir_op(stdout, ir);
-		printf("%d: %s %ld, %ld, %ld\n", i, ir_names[ir->op], ir->o1,
-		    ir->o2, ir->dst);
+		printf("%d: %s %ld, %ld, %ld\n", i, ir_names[ir->op], ir->o1.v,
+		    ir->o2.v, ir->dst.v);
 }

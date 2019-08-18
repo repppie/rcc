@@ -137,15 +137,30 @@ enum node_op {
 extern struct ir *head_ir;
 extern struct ir *last_ir;
 
+struct ir_oprnd {
+	long v;
+	int type;
+};
+
 /* OP l,r -> dst */
 struct ir {
 	struct ir *next;
 	int op;
-	long o1;
-	long o2;
-	long dst;
+	struct ir_oprnd o1;
+	struct ir_oprnd o2;
+	struct ir_oprnd dst;
 	int node;
 	int leader;
+};
+
+enum {
+	IRO_UNUSED,
+	IRO_IMM,
+	IRO_TEMP,
+	IRO_GLOBAL,
+	IRO_LABEL,
+	IRO_NAME,
+	IRO_MISC,
 };
 
 enum ir_op {
@@ -259,7 +274,8 @@ void lex(FILE *f);
 struct type *new_type(int size);
 void parse(void);
 
-struct ir *new_ir(int op, long o1, long o2, long dst);
+struct ir *new_ir(int op, struct ir_oprnd *o1, struct ir_oprnd *o2,
+    struct ir_oprnd *dst);
 void dump_ir_op(FILE *f, struct ir *ir);
 void dump_ir(struct ir *ir);
 void gen_ir(void);
