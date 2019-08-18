@@ -6,50 +6,23 @@
 
 #include "rcc.h"
 
-struct bb {
-	int n;
-	int succ;
-	int pred;
-	int visited;
-	struct ir *ir;
-	int po;
-	int idom;
-	struct set *df;
-	int nr_ir;
-};
-
-struct cfg_edge {
-	int src;
-	int sink;
-	int next_succ;
-	int next_pred;
-};
-
-#define	FOREACH_PRED(b, e, p) for (e =  bb[b].pred; e != -1; e = \
-    edge[e].next_pred, p = &bb[edge[e].src])
-#define	FOREACH_SUCC(b, e, p) for (v = bb[b].succ; e != -1; e = \
-    edge[e].next_succ, p = &bb[edge[e].sink])
-
 #define	MAX_CFG 1000
 
-struct bb bb[MAX_CFG];
-struct cfg_edge edge[MAX_CFG];
-int nr_nodes;
-int nr_edges;
-
-int rpo[MAX_CFG];
-int nrpo;
-
+static struct bb *bb;
+static struct cfg_edge *edge;
+static int nr_bbs;
+static int nr_edges;
+static int nrpo;
 
 static int
-find_node(int n)
+find_bb(int n)
 {
 	int i;
 
-	for (i = 0; i < nr_nodes; i++)
+	for (i = 0; i < nr_bbs; i++)
 		if (bb[i].n == n)
 			return (i);
-	errx(1, "couldn't find node %d\n", n);
+	errx(1, "couldn't find bb %d\n", n);
 	return (-1);
 }
 
@@ -70,6 +43,19 @@ remove_kill(struct ir *ir)
 		p = n;
 	}
 	return (h);
+}
+
+static void
+remove_labels(struct bb *bb)
+{
+	struct ir *i, *o;
+	o = bb->ir;
+	if (o->op == IR_LABEL) {
+		i = o->next;
+		free(o);
+		bb->ir = i;
+		bb->nr_ir--;
+	}
 }
 
 static void
@@ -99,7 +85,7 @@ add_edge(int src, int sink)
 }
 
 static void
-add_node(int id, int n, struct ir *ir)
+add_bb(int id, int n, struct ir *ir)
 {
 	if (ir) {
 		ir->node = id;
@@ -109,90 +95,96 @@ add_node(int id, int n, struct ir *ir)
 	bb[id].n = n;
 	bb[id].succ = -1;
 	bb[id].pred = -1;
-	nr_nodes++;
+	nr_bbs++;
 }
 
 static void
-make_cfg(struct symbol *s)
+make_cfg(struct func *f)
 {
 	struct ir *ir, *last[MAX_CFG], *leader[MAX_CFG], *p;
 	int i, next, nr;
 
-	ir = remove_kill(s->ir);
-	dump_ir(ir);
+	ir = remove_kill(f->ir);
 
 	next = 0;
 	leader[0] = ir;
-	add_node(next++, -1, ir);
+	add_bb(next++, -1, ir);
 	for (i = 1, ir = ir->next; ir; ir = ir->next, i++) {
 		if (ir->op == IR_LABEL) {
 			leader[next] = ir;
-			add_node(next++, ir->o1.v, ir);
+			add_bb(next++, ir->o1.v, ir);
 		}
 	}
 
-	for (i = 0; i < next - 1; i++) {
+	for (i = 0; i < next; i++) {
 		p = leader[i];
 		ir = leader[i]->next;
 		nr = 1;
 		while (ir && !ir->leader) {
 			p = ir;
+			nr++;
 			if (ir->op == IR_JUMP || ir->op == IR_CBR)
 				break;
-			nr++;
 			ir = ir->next;
 		}
 		last[i] = p;
 		bb[i].nr_ir = nr;
 		if (p->op == IR_CBR) {
-			add_edge(i, find_node(p->o2.v));
-			add_edge(i, find_node(p->dst.v));
+			add_edge(i, find_bb(p->o2.v));
+			add_edge(i, find_bb(p->dst.v));
 		} else if (p->op == IR_JUMP)
-			add_edge(i, find_node(p->dst.v));
+			add_edge(i, find_bb(p->dst.v));
 	}
 }
 
 static int
-intersect(int b1, int b2)
+intersect(struct func *f, int b1, int b2)
 {
 	int f1, f2;
 
 	f1 = b1;
 	f2 = b2;
 	while (f1 != f2) {
-		while (bb[f1].po < bb[f2].po)
-			f1 = bb[f1].idom;
-		while (bb[f2].po < bb[f1].po)
-			f2 = bb[f2].idom;
+		while (f->bb[f1].po < f->bb[f2].po)
+			f1 = f->bb[f1].idom;
+		while (f->bb[f2].po < f->bb[f1].po)
+			f2 = f->bb[f2].idom;
 	}
 	return (f1);
 }
 
 static void
-get_doms(void)
+get_doms(struct func *f)
 {
-	struct bb *p;
+	struct bb *p, *pred;
 	int b, ch, i, j, new_idom;
 
-	for (i = 0; i < nr_nodes; i++) 
-		bb[i].idom = -1;
+	for (i = 0; i < nr_bbs; i++) 
+		f->bb[i].idom = -1;
 
-	bb[0].idom = 0;
+	f->bb[0].idom = 0;
 	ch = 1;
 	while (ch) {
 		ch = 0;
-		for (i = 0; i < nr_nodes; i++) {
-			b = rpo[i];
-			new_idom = edge[bb[b].pred].src;
-			FOREACH_PRED(b, j, p) {
-				if (j == bb[b].pred)
+		for (i = 1; i < nr_bbs; i++) {
+			b = f->rpo[i];
+			pred = NULL;
+			FOREACH_PRED(f, b, j, p) {
+				if (p->idom != -1) {
+					new_idom = f->edge[j].src;
+					pred = p;
+					break;
+				}
+			}
+			FOREACH_PRED(f, b, j, p) {
+				if (p == pred)
 					continue;
 				if (p->idom != -1)
-					new_idom = intersect(edge[j].src,
+					new_idom = intersect(f, f->edge[j].src,
 					    new_idom);
 			}
-			if (new_idom != bb[b].idom) {
-				bb[b].idom = new_idom;
+			if (new_idom != f->bb[b].idom) {
+				f->bb[b].idom = new_idom;
 				ch = 1;
 			}
 		}
@@ -200,22 +192,23 @@ get_doms(void)
 }
 
 static void
-get_df(void)
+get_df(struct func *f)
 {
 	struct bb *p;
 	int i, j, r;
 
-	for (i = 0; i < nr_nodes; i++)
-		bb[i].df = new_set(nr_nodes);
+	for (i = 0; i < f->nr_bbs; i++)
+		f->bb[i].df = new_set(f->nr_bbs);
 
-	for (i = 0; i < nr_nodes; i++) {
+	for (i = 0; i < nr_bbs; i++) {
 		/* Multiple preds. */
-		if (bb[i].pred != -1 && edge[bb[i].pred].next_pred != -1) {
-			FOREACH_PRED(i, j, p) {
-				r = edge[j].src;
-				while (r != bb[i].idom) {
-					set_add(bb[r].df, i);
-					r = bb[r].idom;
+		if (f->bb[i].pred != -1 && f->edge[f->bb[i].pred].next_pred !=
+		    -1) {
+			FOREACH_PRED(f, i, j, p) {
+				r = f->edge[j].src;
+				while (r != f->bb[i].idom) {
+					set_add(f->bb[r].df, i);
+					r = f->bb[r].idom;
 				}
 			}
 		}
@@ -223,144 +216,56 @@ get_df(void)
 }
 
 static int
-get_rpo(int n, int po)
+get_rpo(struct func *f, int n, int po)
 {
 	int i;
 
-	bb[n].visited = 1;
-	for (i = bb[n].succ; i != -1; i = edge[i].next_succ)
-		if (!bb[edge[i].sink].visited)
-			po = get_rpo(edge[i].sink, po);
+	f->bb[n].visited = 1;
+	for (i = f->bb[n].succ; i != -1; i = f->edge[i].next_succ)
+		if (!f->bb[f->edge[i].sink].visited)
+			po = get_rpo(f, f->edge[i].sink, po);
 	assert(nrpo >= 0);
-	bb[n].po = po;
-	rpo[nrpo--] = n;
+	f->bb[n].po = po;
+	f->rpo[nrpo--] = n;
 	return (po + 1);
-}
-
-static void
-add_phi(struct bb *bb, int name)
-{
-	struct ir_oprnd dst = { name, IRO_TEMP };
-
-	printf("adding phi for %d to bb %d\n", name, bb->n);
-	last_ir = NULL;
-	new_ir(IR_PHI, NULL, NULL, &dst);
-	last_ir->next = bb->ir;
-	bb->ir = last_ir;
-}
-
-static int
-has_phi(struct bb *bb, int name)
-{
-	struct ir *ir;
-	int i;
-
-	for (i = 0, ir = bb->ir; i < bb->nr_ir && ir->op == IR_PHI; i++, ir =
-	    ir->next)
-		if (ir->dst.type == IRO_TEMP && ir->dst.v == name)
-			return (1);
-	return (0);
-}
-
-static void
-get_live(struct symbol *sym)
-{
-	struct set **blocks, *globals, *varkill, *work;
-	struct ir *ir;
-	int b, d, i, n;
-
-	blocks = malloc(sym->nr_temps * sizeof(struct set *));
-	for (i = 0; i < sym->nr_temps; i++)
-		blocks[i] = new_set(nr_edges);
-
-	globals = new_set(sym->nr_temps);
-	varkill = new_set(sym->nr_temps);
-
-	for (i = 0; i < nr_nodes; i++) {
-		for (n = 0, ir = bb[i].ir; n < bb[i].nr_ir; n++, ir =
-		    ir->next) {
-			if (ir->o1.type == IRO_TEMP && !set_set(varkill,
-			    ir->o1.v))
-				set_add(globals, ir->o1.v);
-			if (ir->o2.type == IRO_TEMP && !set_set(varkill,
-			    ir->o2.v))
-				set_add(globals, ir->o2.v);
-			if (ir->dst.type != IRO_TEMP)
-				continue;
-			set_add(varkill, ir->dst.v);
-			dump_ir_op(stdout, ir);
-			printf("adding %d to block(%ld)\n", i, ir->dst.v);
-			set_add(blocks[ir->dst.v], i);
-		}
-	}
-
-	for (i = 0; i < sym->nr_temps; i++) {
-		if (!set_set(globals, i))
-			continue;
-		work = blocks[i];
-		for (b = 0; b < nr_nodes; b++) {
-			if (!set_set(work, b))
-				continue;
-			for (d = 0; d < nr_nodes; d++) {
-				if (!set_set(bb[b].df, d))
-					continue;
-				if (!has_phi(&bb[b], i)) {
-					add_phi(&bb[b], i);
-					set_add(work, d);
-				}
-			}
-		}
-	}
 }
 
 void
 opt(void)
 {
-	int i;
+	struct func *func;
+	int i, j;
 
 	for (i = 0; i < SYMTAB_SIZE; i++) {
 		if (symtab->tab[i] && symtab->tab[i]->body) {
-			make_cfg(symtab->tab[i]);
+			func = symtab->tab[i]->func;
+			bb = malloc(MAX_CFG * sizeof(struct bb));
+			memset(bb, 0, MAX_CFG * sizeof(struct bb));
+			edge = malloc(MAX_CFG * sizeof(struct cfg_edge));
+			memset(edge, 0, MAX_CFG * sizeof(struct cfg_edge));
+			make_cfg(func);
 
-#if 0
-			for (j = 0; j < 9; j++)
-				add_node(j, j, NULL);
-			add_edge(0, 1);
-			add_edge(1, 2);
-			add_edge(1, 5);
-			add_edge(2, 3);
-			add_edge(5, 6);
-			add_edge(5, 8);
-			add_edge(6, 7);
-			add_edge(8, 7);
-			add_edge(7, 3);
-			add_edge(3, 4);
-			add_edge(3, 1);
-#endif
-#if 0
-			add_node(0, 6, NULL);
-			add_node(1, 5, NULL);
-			add_node(2, 4, NULL);
-			add_node(3, 1, NULL);
-			add_node(4, 2, NULL);
-			add_node(5, 3, NULL);
-			add_edge(0, 1);
-			add_edge(0, 2);
-			add_edge(1, 3);
-			add_edge(2, 4);
-			add_edge(2, 5);
+			func->nr_edges = nr_edges;
+			func->nr_bbs = nr_bbs;
+			func->bb = malloc(nr_bbs * sizeof(struct bb));
+			memcpy(func->bb, bb, nr_bbs * sizeof(struct bb));
+			func->edge = malloc(nr_edges * sizeof(struct
+			    cfg_edge));
+			memcpy(func->edge, edge, nr_edges * sizeof(struct
+			    cfg_edge));
+			free(bb);
+			free(edge);
 
-			add_edge(3, 4);
-			add_edge(4, 3);
-			add_edge(4, 5);
-			add_edge(5, 4);
-#endif
+			for (j = 0; j < func->nr_bbs; j++)
+				remove_labels(&func->bb[j]);
 
-			nrpo = nr_nodes - 1;
-			get_rpo(0, 0);
-			get_doms();
-			get_df();
-			get_live(symtab->tab[i]);
+			nrpo = func->nr_bbs - 1;
+			func->rpo = malloc(nrpo * sizeof(int));
+			get_rpo(func, 0, 0);
+
+			get_doms(func);
+			get_df(func);
+			make_ssa(symtab->tab[i]->func);
 		}
 	}
 }

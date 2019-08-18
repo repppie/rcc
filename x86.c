@@ -353,7 +353,7 @@ emit_x86(void)
 		if (symtab->tab[i] && symtab->tab[i]->body) {
 			emit(".globl %s", symtab->tab[i]->name);
 			emit("%s:", symtab->tab[i]->name);
-			for(ir = symtab->tab[i]->ir; ir; ir = ir->next)
+			for(ir = symtab->tab[i]->func->ir; ir; ir = ir->next)
 				emit_x86_op(ir);
 		}
 	}

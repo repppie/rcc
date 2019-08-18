@@ -214,15 +214,13 @@ struct symbol {
 	char *name;
 	int loc;
 	int assigned;
-	int func;
 	int global;
 	struct type *type;
 	struct node *body;
-	struct ir *ir;
 	struct param *params;
 	struct symtab *tab;
 	char *str;
-	int nr_temps;
+	struct func *func;
 };
 
 struct symtab {
@@ -264,6 +262,43 @@ struct _struct {
 	struct struct_field *fields;
 };
 
+struct func {
+	struct bb *bb;
+	struct cfg_edge *edge;
+	int nr_bbs;
+	int nr_edges;
+	int nr_temps;
+	struct set *globals;
+	int *rpo;
+	struct ir *ir;
+};
+
+struct bb {
+	int n;
+	int succ;
+	int pred;
+	int visited;
+	struct ir *ir;
+	int po;
+	int idom;
+	struct set *df;
+	int nr_ir;
+};
+
+struct cfg_edge {
+	int src;
+	int sink;
+	int next_succ;
+	int next_pred;
+};
+
+#define FOREACH_PRED(f, b, e, p) for (e =  f->bb[b].pred, p = \
+    &f->bb[f->edge[e].src];  e != -1; e = f->edge[e].next_pred, p = \
+    &f->bb[f->edge[e].src])
+#define FOREACH_SUCC(f, b, e, p) for (v = f->bb[b].succ, p = \
+    &f->bb[f->edge[e].sink]; e != -1; e = f->edge[e].next_succ, p = \
+    &f->bb[f->edge[e].sink])
+
 struct set {
 	int n;
 	char *bits;
@@ -295,8 +330,11 @@ int new_label(void);
 void opt(void);
 
 struct set *new_set(int n);
-int set_set(struct set *s, int n);
+int set_has(struct set *s, int n);
 void set_add(struct set *s, int n);
 void set_del(struct set *s, int n);
+int set_empty(struct set *s);
+
+void make_ssa(struct func *f);
 
 #endif

@@ -630,8 +630,8 @@ gen_ir(void)
 				}
 			}
 			gen_ir_op(s->body);
-			s->ir = head_ir;
-			s->nr_temps = cur_reg;
+			s->func->ir = head_ir;
+			s->func->nr_temps = cur_reg;
 		}
 	}
 }
@@ -671,11 +671,33 @@ static char *ir_names[NR_IR_OPS] = {
     [IR_PHI] = "PHI",
 };
 
+static char
+sigil(int type)
+{
+	switch (type) {
+	case IRO_GLOBAL:
+	case IRO_IMM:
+	case IRO_LABEL:
+	case IRO_MISC:
+		return '$';
+	case IRO_TEMP:
+		return '%';
+	default:
+		errx(1, "Unknown IR operand type %d\n", type);
+	}
+}
+
 void
 dump_ir_op(FILE *f, struct ir *ir)
 {
-	fprintf(f, "%s %ld, %ld, %ld\n", ir_names[ir->op], ir->o1.v, ir->o2.v,
-	    ir->dst.v);
+	fprintf(f, "%s ", ir_names[ir->op]);
+	if (ir->o1.type != IRO_UNUSED)
+		fprintf(f, "%c%ld", sigil(ir->o1.type), ir->o1.v);
+	if (ir->o2.type != IRO_UNUSED)
+		fprintf(f, " %c%ld", sigil(ir->o2.type), ir->o2.v);
+	if (ir->dst.type != IRO_UNUSED)
+		fprintf(f, " -> %c%ld", sigil(ir->dst.type), ir->dst.v);
+	fprintf(f, "\n");
 }
 
 void

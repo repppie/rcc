@@ -850,7 +850,7 @@ func(struct type *_type)
 	s = add_sym(tok->str, _type);
 	next();
 	new_symtab();
-	s->func = 1;
+	s->func = malloc(sizeof(struct func));
 	s->tab = symtab;
 	match('(');
 
